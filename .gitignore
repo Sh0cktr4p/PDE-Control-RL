@@ -1,0 +1,3 @@
+output/
+gym_foo.egg-info
+*.pyc
