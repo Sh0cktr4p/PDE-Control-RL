@@ -42,5 +42,5 @@ register(
 
 register(
     id='burger-v8',
-    entry_point='gym_phiflow.envs:BurgerEnvEightXCompleteControlRandomGoal'
+    entry_point='gym_phiflow.envs:BurgerEnvEightXCompleteControlReachableGoal'
 )

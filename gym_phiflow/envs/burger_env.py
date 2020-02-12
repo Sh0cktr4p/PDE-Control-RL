@@ -150,29 +150,25 @@ class BurgerEnv(gym.Env):
 	def forces_complete_continuous(self, action, forces):
 		forces = action.reshape(forces.shape)
 
+	def get_force_generator(self):
+		if self.action_space == self.discrete_2_space():
+			return self.forces_2_discrete
+		elif self.action_space == self.discrete_3_space():
+			return self.forces_3_discrete
+		elif self.action_space == self.discrete_3_3_space():
+			return self.forces_3_3_discrete
+		elif self.action_space == self.continuous_8_space():
+			return self.forces_8_continuous
+		elif self.action_space == self.continuous_complete_field_space():
+			return self.forces_complete_continuous
+		else:
+			raise NotImplementedError()
+
 	def create_forces(self, action):
 		action = np.array(action)
 		forces = np.zeros(self.state.velocity.shape, dtype=np.float32)
 
-		if self.action_space == self.discrete_2_space():
-			action = action * 2 - 1
-			forces[0, 0, 0] = action
-		elif self.action_space == self.discrete_3_space():
-			action = action - 1
-			forces[0, 0, 0] = action
-		elif self.action_space == self.discrete_3_3_space():
-			assert forces.shape[-2] >= 3
-			action = np.array(list(np.base_repr(action, 3).rjust(3, '0')), dtype=np.float32) - 1
-			start_point = int(0.5 * (forces.shape[-2] - 3))
-			forces[0, start_point:start_point+3, 0] = action
-		elif self.action_space == self.continuous_8_space():
-			assert forces.shape[-2] >= 8
-			start_point = int(0.5 * (forces.shape[-2] - 3))
-			forces[0, start_point:start_point+8, 0] = action
-		elif self.action_space == self.continuous_complete_field_space():
-			forces = action.reshape(forces.shape)
-		else:
-			raise NotImplementedError()
+		self.force_generator(action, forces)
 
 		return forces
 
@@ -284,6 +280,7 @@ class BurgerEnv(gym.Env):
 		self.state = Burger(Domain(self.size), math.randn(levels=[0, 0, self.value_velocity_scale]), viscosity=0.2)
 		self.ref_state = self.state.copied_with(velocity=self.state.velocity)
 		self.init_state = self.state.copied_with(velocity=self.state.velocity)
+		self.force_generator = self.get_force_generator()
 		self.goal_obs = self.create_goal()
 		self.viewer = None
 		self.fig = None
