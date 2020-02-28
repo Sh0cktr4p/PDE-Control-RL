@@ -25,7 +25,11 @@ class BurgerEnvCompleteControl(BurgerEnv):
 		return self.mse_new_and_forces_reward(mse_old, mse_new, forces)
 
 
-class BurgerEnvThreeXThreeActionsReachableGoal(BurgerEnv):
+class BurgerEnvThreeXThreeActionsReachableGoalSimple(BurgerEnv):
+	@property
+	def size(self):
+		return (16,)
+
 	@property
 	def action_space(self):
 		return self.discrete_3_3_space()
@@ -65,7 +69,11 @@ class BurgerEnvThreeActionsReachableGoal(BurgerEnvThreeActions):
 		return self.reachable_goal_obs()
 
 
-class BurgerEnvEightXCompleteControlReachableGoal(BurgerEnv):
+class BurgerEnvEightXCompleteControlReachableGoalSimple(BurgerEnv):
+	@property
+	def size(self):
+		return (16,)
+
 	@property
 	def action_space(self):
 		return self.continuous_8_space()
@@ -79,3 +87,46 @@ class BurgerEnvEightXCompleteControlReachableGoal(BurgerEnv):
 
 	def calc_reward(self, mse_old, mse_new, forces):
 		return self.mse_new_and_forces_reward(mse_old, mse_new, forces)
+
+class BurgerEnvCompleteControlRandomGoalSimple(BurgerEnvCompleteControlRandomGoal):
+	@property
+	def size(self):
+		return (16,)
+
+class BurgerEnvEightXCompleteControlReachableGoalTimeVariantSimple(BurgerEnv):
+	@property
+	def size(self):
+		return (16,)
+
+	@property
+	def action_space(self):
+		return self.continuous_8_space()
+
+	@property
+	def observation_space(self):
+		return self.continuous_double_size_with_time_space()
+
+	def create_goal(self):
+		return self.reachable_goal_obs()
+
+	def calc_reward(self, mse_old, mse_new, forces):
+		return self.weighted_mse_forces_reward(mse_old, mse_new, forces)
+
+class BurgerEnvThreeXThreeActionsRelativeRewardReachableGoalTimeVariantSimple(BurgerEnv):
+	@property
+	def size(self):
+		return (16,)
+
+	@property
+	def action_space(self):
+		return self.discrete_3_3_space()
+
+	@property
+	def observation_space(self):
+		return self.continuous_double_size_with_time_space()
+
+	def create_goal(self):
+		return self.reachable_goal_obs()
+
+	def calc_reward(self, mse_old, mse_new, forces):
+		return self.relative_reward(mse_old, mse_new, forces)

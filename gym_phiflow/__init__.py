@@ -22,7 +22,7 @@ register(
 
 register(
     id='burger-v4',
-    entry_point='gym_phiflow.envs:BurgerEnvThreeXThreeActionsReachableGoal'
+    entry_point='gym_phiflow.envs:BurgerEnvThreeXThreeActionsReachableGoalSimple'
 )
 
 register(
@@ -42,5 +42,20 @@ register(
 
 register(
     id='burger-v8',
-    entry_point='gym_phiflow.envs:BurgerEnvEightXCompleteControlReachableGoal'
+    entry_point='gym_phiflow.envs:BurgerEnvEightXCompleteControlReachableGoalSimple'
+)
+
+register(
+    id='burger-v9',
+    entry_point='gym_phiflow.envs:BurgerEnvCompleteControlRandomGoalSimple'
+)
+
+register(
+    id='burger-v10',
+    entry_point='gym_phiflow.envs:BurgerEnvEightXCompleteControlReachableGoalTimeVariantSimple'
+)
+
+register(
+    id='burger-v11',
+    entry_point='gym_phiflow.envs:BurgerEnvThreeXThreeActionsRelativeRewardReachableGoalTimeVariantSimple'
 )
