@@ -18,7 +18,7 @@ class BurgerEnv(gym.Env):
 		return self.physics.step(controlled_state, self.delta_time)
 
 	def __init__(self, epis_len=32, dt=0.5, vel_scale=1.0, use_time=False,
-			exp_name='Default',	act_type=util.ActionType.DISCRETE_2, 
+			name='v0', act_type=util.ActionType.DISCRETE_2, 
 			act_points=default_act_points, goal_type=util.GoalType.ZERO, 
 			rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1):
 		self.step_idx = 0
@@ -27,7 +27,7 @@ class BurgerEnv(gym.Env):
 		self.size = act_points.shape
 		self.delta_time = dt
 		self.vel_scale = vel_scale
-		self.exp_name = exp_name
+		self.exp_name = name
 		self.physics = phi.flow.BurgerPhysics()
 		self.action_space = util.get_action_space(act_type, act_points)
 		self.observation_space = util.get_observation_space(self.size, goal_type, use_time)

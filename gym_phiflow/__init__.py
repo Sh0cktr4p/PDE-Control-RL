@@ -1,61 +1,56 @@
 from gym.envs.registration import register
 
 register(
-    id='burger-v0',
-    entry_point='gym_phiflow.envs:BurgerEnvTwoActions',
+    id='burger-v00',
+    entry_point='gym_phiflow.envs:BurgerEnvTwo',
 )
 
 register(
-    id='burger-v1',
-    entry_point='gym_phiflow.envs:BurgerEnvThreeActions',
+    id='burger-v01',
+    entry_point='gym_phiflow.envs:BurgerEnvThree',
 )
 
 register(
-    id='burger-v2',
-    entry_point='gym_phiflow.envs:BurgerEnvRelativeReward',
+    id='burger-v02',
+    entry_point='gym_phiflow.envs:BurgerEnvContComplete',
 )
 
 register(
-    id='burger-v3',
-    entry_point='gym_phiflow.envs:BurgerEnvCompleteControl',
+    id='burger-v03',
+    entry_point='gym_phiflow.envs:BurgerEnvTwoRel',
 )
 
 register(
-    id='burger-v4',
-    entry_point='gym_phiflow.envs:BurgerEnvThreeXThreeActionsReachableGoalSimple'
+    id='burger-v04',
+    entry_point='gym_phiflow.envs:BurgerEnvThreeRandom'
 )
 
 register(
-    id='burger-v5',
-    entry_point='gym_phiflow.envs:BurgerEnvThreeActionsRandomGoal'
+    id='burger-v05',
+    entry_point='gym_phiflow.envs:BurgerEnvThreeReachable'
 )
 
 register(
-    id='burger-v6',
-    entry_point='gym_phiflow.envs:BurgerEnvCompleteControlRandomGoal'
+    id='burger-v06',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteRandom'
 )
 
 register(
-    id='burger-v7',
-    entry_point='gym_phiflow.envs:BurgerEnvThreeActionsReachableGoal'
+    id='burger-v07',
+    entry_point='gym_phiflow.envs:BurgerEnvThreeThreeReachable'
 )
 
 register(
-    id='burger-v8',
-    entry_point='gym_phiflow.envs:BurgerEnvEightXCompleteControlReachableGoalSimple'
+    id='burger-v08',
+    entry_point='gym_phiflow.envs:BurgerEnvContEightReachable'
 )
 
 register(
-    id='burger-v9',
-    entry_point='gym_phiflow.envs:BurgerEnvCompleteControlRandomGoalSimple'
+    id='burger-v09',
+    entry_point='gym_phiflow.envs:BurgerEnvThreeThreeReachableTime'
 )
 
 register(
     id='burger-v10',
-    entry_point='gym_phiflow.envs:BurgerEnvEightXCompleteControlReachableGoalTimeVariantSimple'
-)
-
-register(
-    id='burger-v11',
-    entry_point='gym_phiflow.envs:BurgerEnvThreeXThreeActionsRelativeRewardReachableGoalTimeVariantSimple'
+    entry_point='gym_phiflow.envs:BurgerEnvContEightReachableTime'
 )

@@ -1,132 +1,69 @@
 from gym_phiflow.envs.burger_env import BurgerEnv
+from gym_phiflow.envs import util
+import numpy as np
 
-class BurgerEnvTwoActions(BurgerEnv):
-	@property
-	def action_space(self):
-		return self.discrete_2_space()
+complete16 = np.ones(shape=(16,), dtype=np.bool)
 
-class BurgerEnvThreeActions(BurgerEnv):
-	@property
-	def action_space(self):
-		return self.discrete_3_space()
+three16 = np.array([True, True, True, False, False, False, False, False,
+					False, False, False, False, False, False, False, False])
 
-
-class BurgerEnvRelativeReward(BurgerEnv):
-	def calc_reward(self, mse_old, mse_new, forces):
-		return self.relative_reward(mse_old, mse_new, forces)
+eight16 = np.array([False, False, False, False, True, True, True, True,
+					True, True, True, True, False, False, False, False])
 
 
-class BurgerEnvCompleteControl(BurgerEnv):
-	@property
-	def action_space(self):
-		return self.continuous_complete_field_space()
 
-	def calc_reward(self, mse_old, mse_new, forces):
-		return self.mse_new_and_forces_reward(mse_old, mse_new, forces)
+class BurgerEnvTwo(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v00')
 
+class BurgerEnvThree(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v01', act_type=util.ActionType.DISCRETE_3)
 
-class BurgerEnvThreeXThreeActionsReachableGoalSimple(BurgerEnv):
-	@property
-	def size(self):
-		return (16,)
+class BurgerEnvContComplete(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v02', act_type=util.ActionType.CONTINUOUS, 
+			act_points=complete16, rew_type=util.RewardType.ABS_FORC)
 
-	@property
-	def action_space(self):
-		return self.discrete_3_3_space()
+class BurgerEnvTwoRel(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v03', rew_type=util.RewardType.RELATIVE)
 
-	@property
-	def observation_space(self):
-		return self.continuous_double_size_space()
+class BurgerEnvThreeRandom(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v04', act_type=util.ActionType.DISCRETE_3,
+			goal_type=util.GoalType.RANDOM)
 
-	def create_goal(self):
-		return self.reachable_goal_obs()
+class BurgerEnvThreeReachable(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v05', act_type=util.ActionType.DISCRETE_3,
+			goal_type=util.GoalType.REACHABLE)
 
+class BurgerEnvContCompleteRandom(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v06', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete16, goal_type=util.GoalType.RANDOM,
+			rew_type=util.RewardType.ABS_FORC)
 
-class BurgerEnvThreeActionsRandomGoal(BurgerEnvThreeActions):
-	@property
-	def observation_space(self):
-		return self.continuous_double_size_space()
+class BurgerEnvThreeThreeReachable(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v07', act_type=util.ActionType.DISCRETE_3,
+			act_points=three16, goal_type=util.GoalType.REACHABLE)
 
-	def create_goal(self):
-		return self.random_goal_obs()
+class BurgerEnvContEightReachable(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v08', act_type=util.ActionType.CONTINUOUS,
+			act_points=eight16, goal_type=util.GoalType.REACHABLE,
+			rew_type=util.RewardType.ABS_FORC)
 
+class BurgerEnvThreeThreeReachableTime(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v09', use_time=True, act_type=util.ActionType.DISCRETE_3,
+		act_points=three16, goal_type=util.GoalType.REACHABLE)
 
-class BurgerEnvCompleteControlRandomGoal(BurgerEnvCompleteControl):
-	@property
-	def observation_space(self):
-		return self.continuous_double_size_space()
+class BurgerEnvContEightReachableTime(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v10', use_time=True, act_type=util.ActionType.CONTINUOUS,
+			act_points=eight16, goal_type=util.GoalType.REACHABLE,
+			rew_type=util.RewardType.ABS_FORC)
 
-	def create_goal(self):
-		return self.random_goal_obs()
-
-
-class BurgerEnvThreeActionsReachableGoal(BurgerEnvThreeActions):
-	@property
-	def observation_space(self):
-		return self.continuous_double_size_space()
-
-	def create_goal(self):
-		return self.reachable_goal_obs()
-
-
-class BurgerEnvEightXCompleteControlReachableGoalSimple(BurgerEnv):
-	@property
-	def size(self):
-		return (16,)
-
-	@property
-	def action_space(self):
-		return self.continuous_8_space()
-
-	@property
-	def observation_space(self):
-		return self.continuous_double_size_space()
-
-	def create_goal(self):
-		return self.reachable_goal_obs()
-
-	def calc_reward(self, mse_old, mse_new, forces):
-		return self.mse_new_and_forces_reward(mse_old, mse_new, forces)
-
-class BurgerEnvCompleteControlRandomGoalSimple(BurgerEnvCompleteControlRandomGoal):
-	@property
-	def size(self):
-		return (16,)
-
-class BurgerEnvEightXCompleteControlReachableGoalTimeVariantSimple(BurgerEnv):
-	@property
-	def size(self):
-		return (16,)
-
-	@property
-	def action_space(self):
-		return self.continuous_8_space()
-
-	@property
-	def observation_space(self):
-		return self.continuous_double_size_with_time_space()
-
-	def create_goal(self):
-		return self.reachable_goal_obs()
-
-	def calc_reward(self, mse_old, mse_new, forces):
-		return self.weighted_mse_forces_reward(mse_old, mse_new, forces)
-
-class BurgerEnvThreeXThreeActionsRelativeRewardReachableGoalTimeVariantSimple(BurgerEnv):
-	@property
-	def size(self):
-		return (16,)
-
-	@property
-	def action_space(self):
-		return self.discrete_3_3_space()
-
-	@property
-	def observation_space(self):
-		return self.continuous_double_size_with_time_space()
-
-	def create_goal(self):
-		return self.reachable_goal_obs()
-
-	def calc_reward(self, mse_old, mse_new, forces):
-		return self.relative_reward(mse_old, mse_new, forces)

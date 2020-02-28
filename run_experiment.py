@@ -4,21 +4,20 @@ import tensorflow as tf
 import gym
 
 exp_map = {
-	'0': 'basic',
-	'1': 'three_actions',
-	'2': 'relative_reward',
-	'3': 'complete_control',
-	'4': 'three_x_three_actions_reachable_goal_simple',
-	'5': 'three_actions_random_goal',
-	'6': 'complete_control_random_goal',
-	'7': 'three_actions_reachable_goal',
-	'8': 'eight_x_complete_control_reachable_goal_simple',
-	'9': 'complete_control_random_goal_simple',
-	'10': 'eight_continuous_reachable_time_simple',
-	'11': 'three_three_relative_reachable_time_simple'
+	'00': 'two',
+	'01': 'three',
+	'02': 'cont_complete',
+	'03': 'two_rel',
+	'04': 'three_random',
+	'05': 'three_reachable',
+	'06': 'cont_complete_random',
+	'07': 'three_three_reachable',
+	'08': 'cont_eight_reachable',
+	'09': 'three_three_reachable_time',
+	'10': 'cont_eight_reachable_time',
 }
 
-key = '11'
+key = '00'
 value = exp_map[key]
 
 name = 'gym_phiflow:burger-v' + key
