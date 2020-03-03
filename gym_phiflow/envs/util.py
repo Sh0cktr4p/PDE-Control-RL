@@ -24,7 +24,7 @@ class RewardType(Enum):
 
 
 def create_forces(indices, forces, actions):
-	forces[indices] = actions
+	forces[indices] = actions.reshape(-1)
 	return forces
 
 def decode_action(action, point_count, action_count):
@@ -48,15 +48,13 @@ def get_force_gen(act_type, act_points, forces_shape):
 		raise NotImplementedError()
 
 
-def get_action_space(act_type, act_points):
-	act_count = len(np.where(act_points))
-
+def get_action_space(act_type, act_dim):
 	if act_type == ActionType.CONTINUOUS:
-		return gym.spaces.Box(-np.inf, np.inf, shape=(act_count,), dtype=np.float32)
+		return gym.spaces.Box(-np.inf, np.inf, shape=(act_dim,), dtype=np.float32)
 	elif act_type == ActionType.DISCRETE_2:
-		return gym.spaces.Discrete(2 ** act_count)
+		return gym.spaces.Discrete(2 ** act_dim)
 	elif act_type == ActionType.DISCRETE_3:
-		return gym.spaces.Discrete(3 ** act_count)
+		return gym.spaces.Discrete(3 ** act_dim)
 	else:
 		raise NotImplementedError()
 
@@ -67,7 +65,7 @@ def get_observation_space(field_size, goal_type, use_time):
 	if goal_type == GoalType.ZERO:
 		obs_size = field_size
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE:
-		obs_size = field_size * field_size
+		obs_size = field_size * 2
 	else:
 		raise NotImplementedError()
 
@@ -95,13 +93,13 @@ def get_goal_gen(force_gen, step_fn, vis_extractor, rand_state_gen, act_type, go
 		action_gen = None
 
 		if act_type == ActionType.CONTINUOUS:
-			action_gen = lambda s: np.random.randint(low=-1, high=1, size=act_dim)
+			action_gen = lambda: np.random.randint(low=-1, high=2, size=act_dim)
 		elif act_type == ActionType.UNMODIFIED:
-			action_gen = lambda s: np.zeros(shape=(act_dim,))
+			action_gen = lambda: np.zeros(shape=(act_dim,))
 		elif act_type == ActionType.DISCRETE_2:
-			action_gen = lambda s: np.random.randint(2 ** act_dim)
+			action_gen = lambda: np.random.randint(2 ** act_dim)
 		elif act_type == ActionType.DISCRETE_3:
-			action_gen = lambda s: np.random.randint(3 ** act_dim)
+			action_gen = lambda: np.random.randint(3 ** act_dim)
 		else:
 			raise NotImplementedError()
 

@@ -32,8 +32,8 @@ def field_to_rgb(field, max_value):
 def plot_fields(fields, labels):
 	fig = plt.figure()
 	x = np.arange(fields[0].size)
-	plots = [plt.plot(x, d[0], label=d[1])[0] for d in zip(fields, labels)]
-	plt.legend(loc='upper_right')
+	plots = [plt.plot(x, f, label=l)[0] for (f, l) in zip(fields, labels)]
+	plt.legend(loc='upper right')
 
 	return fig, plots
 
@@ -81,6 +81,10 @@ class Renderer:
 		self.window.dispatch_events()
 		texture.blit(0, 0)
 		self.window.flip()
+		toc = time.time()
+		sleep_time = 1 / frame_rate - (toc - tic)
+		if sleep_time > 0:
+			time.sleep(sleep_time)
 
 	def close(self):
 		if self.isopen and sys.meta_path:
@@ -93,7 +97,7 @@ class Renderer:
 
 class FilePlotter:
 	def __init__(self, category_name):
-		self.scene = phi.flow.Scene.create(os.expanduser('~/phi/data/'), category_name, mkdir=True)
+		self.scene = phi.flow.Scene.create(os.path.expanduser('~/phi/data/'), category_name, mkdir=True)
 		self.image_dir = self.scene.subpath('images', create=True)
 
 	def render(self, fields, labels, plot_name, ep_idx, step_idx, ep_len):
@@ -128,8 +132,8 @@ class LivePlotter:
 			plt.ion()
 			self.fig, self.plots = plot_fields(fields, labels)
 		else:
-			for i in range(plots):
-				plots[i].set_ydata(fields[i])
+			for i in range(len(self.plots)):
+				self.plots[i].set_ydata(fields[i])
 
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()

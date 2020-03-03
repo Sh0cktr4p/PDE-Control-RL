@@ -54,3 +54,8 @@ register(
     id='burger-v10',
     entry_point='gym_phiflow.envs:BurgerEnvContEightReachableTime'
 )
+
+register(
+    id='burger-v11',
+    entry_point='gym_phiflow.envs:BurgerEnvContSixteen2DReachable'
+)

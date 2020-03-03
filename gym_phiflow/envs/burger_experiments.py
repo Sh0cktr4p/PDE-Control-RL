@@ -10,7 +10,14 @@ three16 = np.array([True, True, True, False, False, False, False, False,
 eight16 = np.array([False, False, False, False, True, True, True, True,
 					True, True, True, True, False, False, False, False])
 
-
+sixteen64 = np.array([	[False, False, False, False, False, False, False, False],
+						[False, False, False, False, False, False, False, False],
+						[False, False, True, True, True, True, False, False],
+						[False, False, True, True, True, True, False, False],
+						[False, False, True, True, True, True, False, False],
+						[False, False, True, True, True, True, False, False],
+						[False, False, False, False, False, False, False, False],
+						[False, False, False, False, False, False, False, False]])
 
 class BurgerEnvTwo(BurgerEnv):
 	def __init__(self):
@@ -67,3 +74,8 @@ class BurgerEnvContEightReachableTime(BurgerEnv):
 			act_points=eight16, goal_type=util.GoalType.REACHABLE,
 			rew_type=util.RewardType.ABS_FORC)
 
+class BurgerEnvContSixteen2DReachable(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v11', act_type=util.ActionType.CONTINUOUS,
+			act_points=sixteen64, goal_type=util.GoalType.REACHABLE,
+			rew_type=util.RewardType.ABS_FORC)
