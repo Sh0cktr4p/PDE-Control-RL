@@ -11,4 +11,11 @@ exp_map = {
 	'09': 'three_three_reachable_time',
 	'10': 'cont_eight_reachable_time',
 	'11': 'cont_sixteen_2D_reachable',
+	'12': 'cont_twenty_2D_reachable',
+	'13': 'cont_twenty_2D_random',
+	'100': 'three_two_reachable',
+	'101': 'cont_two_reachable',
+	'102': 'three_four_reachable',
+	'103': 'cont_four_reachable',
+	'104': 'cont_complete_constant',
 }

@@ -296,7 +296,7 @@ class BurgerEnv(gym.Env):
 		self.plots[2].set_ydata(self.state.velocity.reshape(-1))
 		self.plots[3].set_ydata(self.ref_state.velocity.reshape(-1))
 
-		self.fig.canvas.draw(
+		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
 
 	# =========================== CORE METHODS =================================================

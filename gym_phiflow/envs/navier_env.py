@@ -1,160 +1,113 @@
-import time
+from gym_phiflow.envs import util, visualization
+import phi.flow
 import gym
-from phi.flow import *
+import numpy as np
+
+default_act_points = util.act_points((16,), 0)
 
 class NavierEnv(gym.Env):
-	metadata = {'render.modes': ['human', 'file', 'live_plot']}
+	# Visualization, Plot, File
+	metadata = {'render.modes': ['v', 'p', 'f']}
 
-# =========================== EXPERIMENT VARIATIONS =================
-	def forces_2_discrete(self, action, forces):
-		action = action * 2 - 1
-		forces[0, 0, 0] = action
-		return forces
-
-	def get_force_generator(self):
-		act = self.action_space
-		if act == self.discrete_2_space():
-			return self.forces_2_discrete
-		else: 
-			raise NotImplementedError()
-
-	def create_forces(self, action):
-		action = np.array(action)
-		forces = np.zeros(self.state.velocity.staggered.shape, dtype=np.float32)
-
-		return self.force_generator(action, forces)
+	def get_random_state(self):
+		return phi.flow.Smoke(phi.flow.Domain(self.den_shape), density=phi.flow.math.randn(levels=[self.den_scale]))
 
 	def step_sim(self, state, forces):
-		assert state.velocity.staggered.shape == forces.shape, 'Forces array has wrong size'
-
-		controlled_state = state.copied_with(velocity=state.velocity + phi.flow.math.StaggeredGrid(forces))
-
+		staggered_forces = phi.flow.math.StaggeredGrid(forces.reshape(state.velocity.staggered.shape))
+		controlled_state = state.copied_with(velocity=state.velocity + staggered_forces * self.delta_time)
 		return self.physics.step(controlled_state, self.delta_time)
 
-	def density_to_rgb(self, max_value=1):
-		obs = self.state.density
-		
-		assert obs.shape[-1] < 3, "3D visualization not (yet) supported"
-
-		height, width = self.state.density.shape[-3:-1]
-
-		# Visualization should display field vector length
-		obs = np.linalg.norm(obs, axis=-1).reshape(height, width)
-
-		# Get the color values
-		r = np.clip((obs + max_value) / (2.0 * max_value), 0.0, 1.0)
-		b = 1.0 - r
-
-		r = np.rint(255 * r**2).astype(np.uint8)
-		g = np.zeros_like(r)
-		b = np.rint(255 * b**2).astype(np.uint8)
-
-		# Convert into single color array
-		return np.transpose([r, g, b], (1, 2, 0))
-
-	def show_field_render(self):
-		frame_rate = 1 / 15
-		tic = time.time()
-
-		if self.viewer is None:
-			from gym_phiflow.envs import rendering
-			self.viewer = rendering.SimpleImageViewer()
-
-		rgb = self.density_to_rgb(max_value=1)
-
-		self.viewer.imshow(rgb, 500, 500)
-		toc = time.time()
-
-		sleep_time = frame_rate - (toc - tic)
-
-		if sleep_time > 0:
-			time.sleep(sleep_time)
-
-	def plot_to_file(self):
-		pass
-
-	def show_plot(self):
-		pass
-
-# =========================== CORE METHODS ==========================
-	def __init__(self, size=(16,), ep_len=32, dt=0.5, 
-			act=gym.spaces.Discrete(2)):
-		self.size = size
-		self.episode_length = ep_len
+	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, use_time=False, 
+			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, 
+			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, 
+			init_state_gen=None, goal_field_gen=None):
+		act_params = util.get_all_act_params(act_points)	# Multi-dimensional support
+		self.step_idx = 0
+		self.epis_idx = 0
+		self.epis_len = epis_len
 		self.delta_time = dt
-		self.action_space = act
-		self.step_index = 0
-		self.episode_index = 0
-		self.physics = SmokePhysics()
-		self.observation_space = self.get_obs_space()
-		self.force_generator = self.get_force_generator()
-		self.state = None
-		self.ref_state = None
+		self.den_scale = den_scale
+		self.exp_name = name
+		self.den_shape = tuple(d-1 for d in act_points.shape)	# Act points refers to staggered velocity grid
+		self.physics = phi.flow.SmokePhysics()
+		self.action_space = util.get_action_space(act_type, np.sum(act_params))
+		self.observation_space = util.get_observation_space(np.prod(self.den_shape), goal_type, use_time)
+		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.staggered.shape)
+		self.init_gen = init_state_gen if init_state_gen else self.get_random_state
+		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim,
+			lambda s: s.density.reshape(-1), self.get_random_state, act_type, goal_type, 
+			np.prod(self.den_shape), np.sum(act_params), epis_len, goal_field_gen)
+		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
+		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
+		self.cont_state = None
+		self.pass_state = None
 		self.init_state = None
 		self.goal_obs = None
-		self.viewer = None
-		self.fig = None
-		self.plots = None
-		self.scene = None
-		self.image_dir = None
+		self.renderer = None
+		self.live_plotter = None
+		self.file_plotter = None
+
+	def reset(self):
+		self.init_state = self.init_gen()
+		self.cont_state = self.init_state.copied_with()
+		self.pass_state = self.init_state.copied_with()
+		self.goal_obs = self.goal_gen(self.init_state.copied_with())
+		self.step_idx = 0
+
+		return self.obs_gen(self.cont_state.density.reshape(-1), self.goal_obs, self.step_idx)
 
 	def step(self, action):
-		forces = self.create_forces(action)
+		self.step_idx += 1
 
-		old_obs = self.state.density.reshape(-1)
+		old_obs = self.cont_state.density.reshape(-1)
 
-		forces = self.create_forces(action)
+		forces = self.force_gen(action)
 
-		self.state = self.step_sim(self.state, forces)
-		self.ref_state = self.physics.step(self.ref_state, self.delta_time)
+		self.cont_state = self.step_sim(self.cont_state, forces)
+		self.pass_state = self.physics.step(self.pass_state, self.delta_time)
 
-		new_obs = self.state.density.reshape(-1)
+		new_obs = self.cont_state.density.reshape(-1)
 
 		mse_old = np.sum((self.goal_obs - old_obs) ** 2)
 		mse_new = np.sum((self.goal_obs - new_obs) ** 2)
 
-		obs = self.get_obs()
-
-		reward = self.calc_reward(mse_old, mse_new, forces)
-
-		done = self.step_index == self.episode_length
+		obs = self.obs_gen(self.cont_state.density.reshape(-1), self.goal_obs, self.step_idx)
+		reward = self.rew_gen(mse_old, mse_new, forces)
+		done = self.step_idx == self.epis_len
 
 		if done:
-			self.episode_index += 1
+			self.epis_idx += 1
 
 		return obs, reward, done, {}
 
+	def render(self, mode='p'):
+		fields = [self.cont_state.density.reshape(-1),
+					self.pass_state.density.reshape(-1),
+					self.init_state.density.reshape(-1),
+					self.goal_obs]
 
-	def reset(self):
-		self.state = Smoke(Domain(self.state))
-		self.ref_state = self.state.copied_with()
-		self.init_state = self.state.copied_with()
-		self.goal_obs = self.create_goal()
-		self.step_index = 0
+		labels = ['Controlled Simulation',
+					'Uncontrolled Simulation',
+					'Initial Density Field',
+					'Goal Density Field']
 
-		return self.get_obs()
-
-	def render(self, mode='human'):
-		if mode == 'human':
-			self.show_field_render()
-		elif mode == 'file':
-			self.plot_to_file()
-		elif mode == 'live_plot':
-			self.show_plot()
+		if mode == 'v':
+			if self.renderer is None:
+				self.renderer = visualization.Renderer()
+			self.renderer.render(self.cont_state.density, 15, 1, 500, 500)
+		elif mode == 'p':
+			if self.live_plotter is None:
+				self.live_plotter = visualization.LivePlotter()
+			self.live_plotter.render(fields, labels)
+		elif mode == 'f':
+			if self.file_plotter is None:
+				self.file_plotter = visualization.FilePlotter('SpinningNavier-%s' % self.exp_name)
+			self.file_plotter.render(fields, labels, 'Velocity', self.epis_idx, self.step_idx, self.epis_len)
 		else:
 			raise NotImplementedError()
 
 	def close(self):
-		if self.viewer:
-			self.viewer.close()
-			self.viewer = None
+		pass
 
 	def seed(self):
 		pass
-
-env = NavierEnv()
-
-env.reset()
-for _ in range(200):
-	env.step(0)
-	env.render()

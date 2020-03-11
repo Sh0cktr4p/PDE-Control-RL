@@ -3,9 +3,11 @@ from gym_phiflow.envs import util
 import numpy as np
 
 complete16 = np.ones(shape=(16,), dtype=np.bool)
+complete32 = np.ones(shape=(32,), dtype=np.bool)
 
-three16 = np.array([True, True, True, False, False, False, False, False,
-					False, False, False, False, False, False, False, False])
+two16 = util.act_points(size=(16,), indices=[7,8])
+three16 = util.act_points(size=(16,), indices=[7,8,9])
+four16 = util.act_points(size=(16,), indices=[6,7,8,9])
 
 eight16 = np.array([False, False, False, False, True, True, True, True,
 					True, True, True, True, False, False, False, False])
@@ -78,4 +80,32 @@ class BurgerEnvContSixteen2DReachable(BurgerEnv):
 	def __init__(self):
 		super().__init__(name='v11', act_type=util.ActionType.CONTINUOUS,
 			act_points=sixteen64, goal_type=util.GoalType.REACHABLE,
+			rew_type=util.RewardType.ABS_FORC)
+
+class BurgerEnvThreeTwoReachable(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v100', act_type=util.ActionType.DISCRETE_3,
+			act_points=two16, goal_type=util.GoalType.REACHABLE)
+
+class BurgerEnvContTwoReachable(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v101', act_type=util.ActionType.CONTINUOUS,
+			act_points=two16, goal_type=util.GoalType.REACHABLE,
+			rew_type=util.RewardType.ABS_FORC)
+
+class BurgerEnvThreeFourReachable(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v102', act_type=util.ActionType.DISCRETE_3,
+			act_points=four16, goal_type=util.GoalType.REACHABLE)
+
+class BurgerEnvContFourReachable(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v103', act_type=util.ActionType.CONTINUOUS,
+			act_points=four16, goal_type=util.GoalType.REACHABLE,
+			rew_type=util.RewardType.ABS_FORC)
+
+class BurgerEnvContCompleteConstant(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v104', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete32, goal_type=util.GoalType.CONSTANT_FORCE,
 			rew_type=util.RewardType.ABS_FORC)

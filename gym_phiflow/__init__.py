@@ -59,3 +59,38 @@ register(
     id='burger-v11',
     entry_point='gym_phiflow.envs:BurgerEnvContSixteen2DReachable'
 )
+
+register(
+    id='burger-v100',
+    entry_point='gym_phiflow.envs:BurgerEnvThreeTwoReachable'
+)
+
+register(
+    id='burger-v101',
+    entry_point='gym_phiflow.envs:BurgerEnvContTwoReachable'
+)
+
+register(
+    id='burger-v102',
+    entry_point='gym_phiflow.envs:BurgerEnvThreeFourReachable'
+)
+
+register(
+    id='burger-v103',
+    entry_point='gym_phiflow.envs:BurgerEnvContFourReachable'
+)
+
+register(
+    id='burger-v104',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteConstant'
+)
+
+register(
+    id='navier-v00',
+    entry_point='gym_phiflow.envs:NavierEnvTwo'
+)
+
+register(
+    id='navier-v12',
+    entry_point='gym_phiflow.envs:NavierEnvContTwenty2DReachable'
+)

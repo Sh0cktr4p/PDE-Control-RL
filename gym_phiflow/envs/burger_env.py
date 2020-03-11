@@ -7,16 +7,13 @@ import time
 
 default_act_points = util.act_points((16,), 0)
 
-def get_all_act_params(points):
-	points = np.squeeze(points)
-	return np.squeeze(np.stack([points for _ in range(points.ndim)], points.ndim))
 
 class BurgerEnv(gym.Env):
 	# Visualization, Plot, File
 	metadata = {'render.modes': ['v', 'p', 'f']}
 
 	def get_random_state(self):
-		return phi.flow.Burger(phi.flow.Domain(self.shape), phi.flow.math.randn(levels=[0, 0, self.vel_scale]), viscosity=0.2)
+		return phi.flow.Burger(phi.flow.Domain(self.shape), phi.flow.math.randn(levels=[0,0,self.vel_scale]), viscosity=0.2)
 
 	def step_sim(self, state, forces):
 		controlled_state = state.copied_with(velocity=state.velocity + forces.reshape(state.velocity.shape) * self.delta_time)
@@ -26,14 +23,14 @@ class BurgerEnv(gym.Env):
 			name='v0', act_type=util.ActionType.DISCRETE_2, 
 			act_points=default_act_points, goal_type=util.GoalType.ZERO, 
 			rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1):
-		act_params = get_all_act_params(act_points)	# Important for multi-dimensional cases
+		act_params = util.get_all_act_params(act_points)	# Important for multi-dimensional cases
 		self.step_idx = 0
 		self.epis_idx = 0
 		self.epis_len = epis_len
-		self.shape = act_points.shape
 		self.delta_time = dt
 		self.vel_scale = vel_scale
 		self.exp_name = name
+		self.shape = act_points.shape
 		self.physics = phi.flow.BurgerPhysics()
 		self.action_space = util.get_action_space(act_type, np.sum(act_params))
 		self.observation_space = util.get_observation_space(act_params.size, goal_type, use_time)
@@ -45,7 +42,7 @@ class BurgerEnv(gym.Env):
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
 		self.cont_state = None
 		self.pass_state = None
-		self.init_obs = None
+		self.init_state = None
 		self.goal_obs = None
 		self.renderer = None
 		self.live_plotter = None
@@ -105,7 +102,7 @@ class BurgerEnv(gym.Env):
 			self.live_plotter.render(fields, labels)
 		elif mode == 'f':
 			if self.file_plotter is None:
-				self.file_plotter = visualization.FilePlotter('SpinningBurger%s' % self.exp_name)
+				self.file_plotter = visualization.FilePlotter('SpinningBurger-%s' % self.exp_name)
 			self.file_plotter.render(fields, labels, 'Velocity', self.epis_idx, self.step_idx, self.epis_len)
 		else:
 			raise NotImplementedError()

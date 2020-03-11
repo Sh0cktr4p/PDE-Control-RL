@@ -31,6 +31,7 @@ def field_to_rgb(field, max_value):
 
 def plot_fields(fields, labels):
 	fig = plt.figure()
+	plt.ylim(-2.0, 2.0)
 	x = np.arange(fields[0].size)
 	plots = [plt.plot(x, f, label=l)[0] for (f, l) in zip(fields, labels)]
 	plt.legend(loc='upper right')
