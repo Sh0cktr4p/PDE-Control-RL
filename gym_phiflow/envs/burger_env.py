@@ -33,11 +33,11 @@ class BurgerEnv(gym.Env):
 		self.shape = act_points.shape
 		self.physics = phi.flow.BurgerPhysics()
 		self.action_space = util.get_action_space(act_type, np.sum(act_params))
-		self.observation_space = util.get_observation_space(act_params.size, goal_type, use_time)
+		self.observation_space = util.get_observation_space(act_params.shape, goal_type, use_time)
 		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.shape)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim, 
-			lambda s: np.real(s.velocity).reshape(-1), self.get_random_state,
-			act_type, goal_type, act_params.size, np.sum(act_params), epis_len)
+			lambda s: np.squeeze(np.real(s.velocity)), self.get_random_state,
+			act_type, goal_type, act_params.shape, np.sum(act_params), epis_len)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
 		self.cont_state = None
@@ -55,24 +55,24 @@ class BurgerEnv(gym.Env):
 		self.goal_obs = self.goal_gen(self.init_state.copied_with())
 		self.step_idx = 0
 
-		return self.obs_gen(np.real(self.cont_state.velocity).reshape(-1), self.goal_obs, self.step_idx)
+		return self.obs_gen(np.squeeze(np.real(self.cont_state.velocity)), self.goal_obs, self.step_idx)
 
 	def step(self, action):
 		self.step_idx += 1
 
-		v_old = np.real(self.cont_state.velocity).reshape(-1)
+		v_old = np.squeeze(np.real(self.cont_state.velocity))
 
 		forces = self.force_gen(action)
 
 		self.cont_state = self.step_sim(self.cont_state, forces)
 		self.pass_state = self.physics.step(self.pass_state, self.delta_time)
 
-		v_new = np.real(self.cont_state.velocity).reshape(-1)
+		v_new = np.squeeze(np.real(self.cont_state.velocity))
 
 		mse_old = np.sum((self.goal_obs - v_old) ** 2)
 		mse_new = np.sum((self.goal_obs - v_new) ** 2)
 
-		obs = self.obs_gen(np.real(self.cont_state.velocity).reshape(-1), self.goal_obs, self.step_idx)
+		obs = self.obs_gen(np.squeeze(np.real(self.cont_state.velocity)), self.goal_obs, self.step_idx)
 		reward = self.rew_gen(mse_old, mse_new, forces)
 		done = self.step_idx == self.epis_len
 

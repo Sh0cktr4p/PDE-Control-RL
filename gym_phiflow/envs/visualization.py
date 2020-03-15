@@ -121,6 +121,8 @@ class FilePlotter:
 
 			for filename in filenames:
 				os.remove(filename)
+			
+			
 
 
 class LivePlotter:

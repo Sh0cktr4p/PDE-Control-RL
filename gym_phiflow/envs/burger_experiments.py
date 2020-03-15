@@ -109,3 +109,9 @@ class BurgerEnvContCompleteConstant(BurgerEnv):
 		super().__init__(name='v104', act_type=util.ActionType.CONTINUOUS,
 			act_points=complete32, goal_type=util.GoalType.CONSTANT_FORCE,
 			rew_type=util.RewardType.ABS_FORC)
+
+class BurgerEnvContCompleteConstantSmoothed(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v105', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete32, goal_type=util.GoalType.CONSTANT_FORCE,
+			rew_type=util.RewardType.ABS_FORC, rew_force_factor=2)

@@ -86,6 +86,11 @@ register(
 )
 
 register(
+    id='burger-v105',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteConstantSmoothed'
+)
+
+register(
     id='navier-v00',
     entry_point='gym_phiflow.envs:NavierEnvTwo'
 )
@@ -93,4 +98,9 @@ register(
 register(
     id='navier-v12',
     entry_point='gym_phiflow.envs:NavierEnvContTwenty2DReachable'
+)
+
+register(
+    id='navier-v14',
+    entry_point='gym_phiflow.envs:NavierEnvContComplete2DShapes'
 )

@@ -61,21 +61,20 @@ def get_action_space(act_type, act_dim):
 		raise NotImplementedError()
 
 
-def get_observation_space(field_size, goal_type, use_time):
-	obs_size = 0
-
+def get_observation_space(field_shape, goal_type, use_time):
 	if goal_type == GoalType.ZERO:
-		obs_size = field_size
+		obs_shape = field_shape
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
 		or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
-		obs_size = field_size * 2
+		obs_shape = list(field_shape) + [2]
 	else:
 		raise NotImplementedError()
 
 	if use_time:
-		obs_size += 1
-
-	return gym.spaces.Box(-np.inf, np.inf, shape=(obs_size,), dtype=np.float32)
+		raise NotImplementedError()
+		#obs_size += 1
+		
+	return gym.spaces.Box(-np.inf, np.inf, shape=obs_shape, dtype=np.float32)
 
 
 def run_trajectory(force_gen, action_gen, step_fn, vis_extractor, ep_len, state):
@@ -103,9 +102,9 @@ def get_act_gen(act_type, act_dim, enf_disc=False):
 
 
 def get_goal_gen(force_gen, step_fn, vis_extractor, rand_state_gen, act_type, 
-		goal_type, vis_size, act_dim, ep_len, goal_field_gen=None):
+		goal_type, vis_shape, act_dim, ep_len, goal_field_gen=None):
 	if goal_type == GoalType.ZERO:
-		return lambda s: np.zeros(shape=(vis_size,), dtype=np.float32)
+		return lambda s: np.zeros(shape=vis_shape, dtype=np.float32)
 	elif goal_type == GoalType.RANDOM:
 		return lambda s: vis_extractor(rand_state_gen())
 	elif goal_type == GoalType.REACHABLE:
@@ -113,7 +112,7 @@ def get_goal_gen(force_gen, step_fn, vis_extractor, rand_state_gen, act_type,
 		return lambda s: run_trajectory(force_gen, action_gen, step_fn, vis_extractor, ep_len, s)
 	elif goal_type == GoalType.PREDEFINED:
 		assert goal_field_gen is not None
-		return lambda s: goal_field_gen()
+		return lambda s: np.squeeze(goal_field_gen())
 	elif goal_type == GoalType.CONSTANT_FORCE:
 		action_gen = get_act_gen(act_type, act_dim, enf_disc=False)
 		return lambda s: run_trajectory(force_gen, lambda: action_gen(), step_fn, vis_extractor, ep_len, s)
@@ -136,9 +135,9 @@ def get_obs_gen(goal_type, use_time, epis_len):
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
 			or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
 		if use_time:
-			return lambda v, g, t: np.append(np.concatenate((v, g), axis=0), t)
+			return lambda v, g, t: np.append(np.stack((v, g), axis=-1), t)
 		else:
-			return lambda v, g, t: np.concatenate((v, g), axis=0)
+			return lambda v, g, t: np.stack((v, g), axis=-1)
 	else:
 		raise NotImplementedError()
 
