@@ -4,7 +4,9 @@ import numpy as np
 
 twenty400 = util.act_points(size=(20,20), indices=tuple(zip(*[(i, 0) for i in range(20)])))
 #complete256 = np.ones(shape=(65, 65), dtype=np.bool)
-complete256 = util.act_points(size=(65,65), indices=tuple(zip(*[(i, 0) for i in range(65)])))
+#complete256 = util.act_points(size=(65,65), indices=tuple(zip(*[(i, 0) for i in range(65)])))
+block1089 = util.act_points(size=(17,17), indices=tuple(zip(*[(i, j) for i in range(6,11) for j in range(6,11)])))
+
 
 class NavierEnvTwo(NavierEnv):
 	def __init__(self):
@@ -19,7 +21,7 @@ class NavierEnvContTwenty2DReachable(NavierEnv):
 class NavierEnvContComplete2DShapes(NavierEnv):
 	def __init__(self):
 		super().__init__(name='v14', act_type=util.ActionType.CONTINUOUS,
-			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
-			rew_type=util.RewardType.ABS_FORC, 
-			init_field_gen=lambda: shape_field.get_random_field((64, 64)).reshape(1, 64, 64, 1), 
-			goal_field_gen=lambda: shape_field.get_random_field((64, 64)).reshape(1, 64, 64, 1))
+			act_points=block1089, goal_type=util.GoalType.PREDEFINED,
+			rew_type=util.RewardType.ABS_FORC, rew_force_factor=0.01,
+			init_field_gen=lambda: shape_field.get_random_field((16, 16)).reshape(1, 16, 16, 1), 
+			goal_field_gen=lambda: shape_field.get_random_field((16, 16)).reshape(1, 16, 16, 1))

@@ -63,17 +63,17 @@ def get_action_space(act_type, act_dim):
 
 def get_observation_space(field_shape, goal_type, use_time):
 	if goal_type == GoalType.ZERO:
-		obs_shape = field_shape
+		obs_shape = [1] + list(field_shape)
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
 		or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
-		obs_shape = list(field_shape) + [2]
+		obs_shape = [2] + list(field_shape)
 	else:
 		raise NotImplementedError()
 
 	if use_time:
 		raise NotImplementedError()
 		#obs_size += 1
-		
+
 	return gym.spaces.Box(-np.inf, np.inf, shape=obs_shape, dtype=np.float32)
 
 
@@ -131,13 +131,13 @@ def get_obs_gen(goal_type, use_time, epis_len):
 		if use_time:
 			return lambda v, g, t: np.append(v, t / epis_len)
 		else:
-			return lambda v, g, t: v
+			return lambda v, g, t: np.expand_dims(v, 0)
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
 			or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
 		if use_time:
 			return lambda v, g, t: np.append(np.stack((v, g), axis=-1), t)
 		else:
-			return lambda v, g, t: np.stack((v, g), axis=-1)
+			return lambda v, g, t: np.stack((v, g), axis=0)#.reshape(-1)
 	else:
 		raise NotImplementedError()
 

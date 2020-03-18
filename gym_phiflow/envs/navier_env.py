@@ -78,7 +78,6 @@ class NavierEnv(gym.Env):
 		done = self.step_idx == self.epis_len
 
 		if done:
-			print(self.epis_idx)
 			self.epis_idx += 1
 
 		return obs, reward, done, {}

@@ -1,3 +1,4 @@
 output/
+old_outputs/
 gym_foo.egg-info
 *.pyc
