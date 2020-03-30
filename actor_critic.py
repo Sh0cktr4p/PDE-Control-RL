@@ -1,20 +1,91 @@
 from spinup.algos.pytorch.ppo import core
 import torch
 import numpy as np
+import traceback
+
+class RNN(torch.nn.Module):
+	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
+		super().__init__()
+		self.x_size = np.prod(obs_shape)
+		self.h_size = sizes[0]
+		self.y_size = sizes[-1]
+		self.flt = torch.nn.Flatten()
+		self.rnn = torch.nn.GRU(self.x_size, self.h_size, batch_first=True)
+		layers = []
+
+		for j in range(len(sizes)-1):
+			act = activation if j < len(sizes)-2 else output_activation
+			layers += [torch.nn.Linear(sizes[j], sizes[j+1]), act()]
+
+		self.seq = torch.nn.Sequential(*layers)
+		self.h = self.init_hidden()
+		self.hid_buf = []
+		self.first_step = True
+
+	def forward(self, x):
+		x = x.view(-1, 1, self.x_size).float()
+		if x.shape[0] == 1:
+			if self.first_step:
+				self.first_step = False
+				self.hid_buf = []
+			self.hid_buf.append(self.h)
+			y, self.h = self.rnn(x, self.h)
+			self.h.detach_()
+		else:
+			self.first_step = True
+			y, _ = self.rnn(x, torch.cat(self.hid_buf[:-1], 1))
+			self.h = self.init_hidden()
+		y = self.seq(y)
+		y = y.view(-1, self.y_size)
+		return y
+
+	def init_hidden(self):
+		return torch.zeros((1, 1, self.h_size), requires_grad=True)
 
 
+class CNN(torch.nn.Module):
+	def __init__(self, obs_shape, conv_sizes, lin_sizes, activation, output_activation=torch.nn.Identity):
+		super().__init__()
+		layers = []
+
+		# Add input channels to conv sizes
+		ext_conv_sizes = obs_shape[0] + list(conv_sizes)
+
+		for i in range(len(conv_sizes)):
+			layers += [torch.nn.Conv2d(ext_conv_sizes[i], ext_conv_sizes[i+1], 3, padding=1), torch.nn.MaxPool2d(2), activation()]
+
+		layers.append(torch.nn.Flatten())
+
+		# Add flatten layer output to lin sizes
+		ext_lin_sizes = [(np.prod(obs_shape[1:]) * conv_sizes[-1]) // 2 ** (2 * len(conv_sizes))] + list(lin_sizes)
+
+		for j in range(len(lin_sizes)):
+			act = activation if j < len(lin_sizes)-1 else output_activation
+			layers += [torch.nn.Linear(ext_lin_sizes[j], ext_lin_sizes[j+1], 3, padding=1), act()]
+
+		self.seq = torch.nn.Sequential(*layers)
+
+	def forward(self, x):
+		return self.seq(x)
+
+ 
 def mlp(obs_shape, sizes, activation, output_activation=torch.nn.Identity):
+	#return RNN(obs_shape, sizes, activation, output_activation)
+
 	layers = []
 
 	print(obs_shape)
 
-	if(tuple(obs_shape[1:]) == (16,16)):
-		layers += [torch.nn.Conv2d(obs_shape[0], 16, 3, padding=1), torch.nn.MaxPool2d(2)]
-		layers += [torch.nn.Conv2d(16, 8, 3, padding=1), torch.nn.MaxPool2d(2)]
-		layers += [torch.nn.Conv2d(8, 8, 3, padding=1), torch.nn.MaxPool2d(2)]
+	if(len(obs_shape) == 3) and np.prod(obs_shape[1:]) % 64 == 0 and obs_shape[1] == obs_shape[2]:
+		print('Using convolutional layers')
+		layers += [torch.nn.Conv2d(obs_shape[0], 8, 3, padding=1), torch.nn.MaxPool2d(2), activation()]
+		layers += [torch.nn.Conv2d(8, 16, 3, padding=1), torch.nn.MaxPool2d(2), activation()]
+		layers += [torch.nn.Conv2d(16, 32, 3, padding=1), activation()]
 		layers += [torch.nn.Flatten()]
-		sizes[0] = 32
+
+		sizes[0] = np.prod(obs_shape[1:]) // 2
 	else:
+		print('Using fully connected model')
 		layers += [torch.nn.Flatten(), torch.nn.Linear(np.prod(obs_shape), sizes[0]), activation()]
 	
 	for j in range(len(sizes)-1):

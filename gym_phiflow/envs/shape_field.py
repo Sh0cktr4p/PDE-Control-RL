@@ -29,7 +29,7 @@ class Shape:
 
 	def get_field(self, field_shape):
 		field = np.zeros(field_shape, dtype=np.float32)
-		field[self.rand_off_indices(field_shape)] = 1 / len(self.indices[0])
+		field[self.rand_off_indices(field_shape)] = 10 / len(self.indices[0])
 		return field
 
 

@@ -82,6 +82,11 @@ class BurgerEnvContSixteen2DReachable(BurgerEnv):
 			act_points=sixteen64, goal_type=util.GoalType.REACHABLE,
 			rew_type=util.RewardType.ABS_FORC)
 
+class BurgerEnvTwoReachableSync(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v15', act_points=complete16, 
+			goal_type=util.GoalType.REACHABLE, synchronized=True)
+
 class BurgerEnvThreeTwoReachable(BurgerEnv):
 	def __init__(self):
 		super().__init__(name='v100', act_type=util.ActionType.DISCRETE_3,

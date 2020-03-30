@@ -61,6 +61,11 @@ register(
 )
 
 register(
+    id='burger-v15',
+    entry_point='gym_phiflow.envs:BurgerEnvTwoReachableSync'
+)
+
+register(
     id='burger-v100',
     entry_point='gym_phiflow.envs:BurgerEnvThreeTwoReachable'
 )

@@ -32,20 +32,22 @@ def create_forces(indices, forces, actions):
 def decode_action(action, point_count, action_count):
 	return action // action_count ** np.arange(point_count) % action_count
 
-def get_force_gen(act_type, act_points, forces_shape):
-	act_points = act_points.reshape(forces_shape)
+def get_force_gen(act_type, act_params, forces_shape, synchronized):
+	act_params = act_params.reshape(forces_shape)
 
-	indices = np.where(act_points)
+	indices = np.where(act_params)
 	forces = np.zeros(forces_shape)
+
+	act_size = 1 if synchronized else np.sum(act_params)
 
 	if act_type == ActionType.CONTINUOUS:
 		return lambda a: create_forces(indices, forces, a)
 	elif act_type == ActionType.UNMODIFIED:
 		return lambda a: np.zeros(forces_shape)
 	elif act_type == ActionType.DISCRETE_2:
-		return lambda a: create_forces(indices, forces, decode_action(a, np.sum(act_points), 2) * 2 - 1)
+		return lambda a: create_forces(indices, forces, decode_action(a, act_size, 2) * 2 - 1)
 	elif act_type == ActionType.DISCRETE_3:
-		return lambda a: create_forces(indices, forces, decode_action(a, np.sum(act_points), 3) - 1)
+		return lambda a: create_forces(indices, forces, decode_action(a, act_size, 3) - 1)
 	else:
 		raise NotImplementedError()
 

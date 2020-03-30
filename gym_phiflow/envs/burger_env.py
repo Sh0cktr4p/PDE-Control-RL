@@ -22,8 +22,10 @@ class BurgerEnv(gym.Env):
 	def __init__(self, epis_len=32, dt=0.5, vel_scale=1.0, use_time=False,
 			name='v0', act_type=util.ActionType.DISCRETE_2, 
 			act_points=default_act_points, goal_type=util.GoalType.ZERO, 
-			rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1):
+			rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, synchronized=False):
 		act_params = util.get_all_act_params(act_points)	# Important for multi-dimensional cases
+		act_dim = 1 if synchronized else np.sum(act_params)
+		
 		self.step_idx = 0
 		self.epis_idx = 0
 		self.epis_len = epis_len
@@ -32,12 +34,12 @@ class BurgerEnv(gym.Env):
 		self.exp_name = name
 		self.shape = act_points.shape
 		self.physics = phi.flow.BurgerPhysics()
-		self.action_space = util.get_action_space(act_type, np.sum(act_params))
+		self.action_space = util.get_action_space(act_type, act_dim)
 		self.observation_space = util.get_observation_space(act_params.shape, goal_type, use_time)
-		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.shape)
+		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.shape, synchronized)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim, 
 			lambda s: np.squeeze(np.real(s.velocity)), self.get_random_state,
-			act_type, goal_type, act_params.shape, np.sum(act_params), epis_len)
+			act_type, goal_type, act_params.shape, act_dim, epis_len)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
 		self.cont_state = None
@@ -85,7 +87,7 @@ class BurgerEnv(gym.Env):
 		fields = [np.real(self.cont_state.velocity).reshape(-1), 
 					np.real(self.pass_state.velocity).reshape(-1),
 					np.real(self.init_state.velocity).reshape(-1),
-					self.goal_obs]
+					self.goal_obs.reshape(-1)]
 		
 		labels = ['Controlled Simulation',
 					'Uncontrolled Simulation',
@@ -95,7 +97,7 @@ class BurgerEnv(gym.Env):
 		if mode == 'v':
 			if self.renderer is None:
 				self.renderer = visualization.Renderer()
-			self.renderer.render(self.cont_state.velocity, 15, 1, 500, 500)
+			self.renderer.render(self.cont_state.velocity, None, 15, 1, 500, 500)
 		elif mode == 'p':
 			if self.live_plotter is None:
 				self.live_plotter = visualization.LivePlotter()
