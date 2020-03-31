@@ -3,11 +3,38 @@ import phi.flow
 import gym
 import numpy as np
 
+
 default_act_points = util.act_points((16,), 0)
 
+
 class NavierEnv(gym.Env):
-	# Visualization, Plot, File, Animation
-	metadata = {'render.modes': ['v', 'p', 'f', 'a']}
+	# Live, File
+	metadata = {'render.modes': ['l', 'f']}
+
+	def get_fields_and_labels(self):
+		ndim = len(self.den_shape)
+
+		if ndim == 1:
+			fields = [self.cont_state.density.reshape(-1),
+					self.pass_state.density.reshape(-1),
+					self.init_state.density.reshape(-1),
+					self.goal_obs.reshape(-1)]
+
+			labels = ['Controlled Simulation',
+					'Uncontrolled Simulation',
+					'Initial Density Field',
+					'Goal Density Field']
+		elif ndim == 2:
+			fields = [self.cont_state.density,
+					self.init_state.density,
+					self.goal_obs.reshape([1] + list(self.goal_obs.shape) + [1])]
+			labels = ['Controlled Simulation',
+					'Initial Density Field',
+					'Goal Density Field']
+		else:
+			raise NotImplementedError()
+		
+		return fields, labels
 
 	def get_state_with(self, value):
 		return phi.flow.Smoke(phi.flow.Domain(self.den_shape), density=value, buoyancy_factor=0.0)
@@ -23,7 +50,7 @@ class NavierEnv(gym.Env):
 	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, use_time=False, 
 			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, 
 			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, 
-			synchronized=False, init_field_gen=None, goal_field_gen=None):
+			synchronized=False, init_field_gen=None, goal_field_gen=None, all_visible=False):
 		act_params = util.get_all_act_params(act_points)	# Multi-dimensional support
 		act_dim = 1 if synchronized else np.sum(act_params)
 		self.step_idx = 0
@@ -38,8 +65,9 @@ class NavierEnv(gym.Env):
 		self.observation_space = util.get_observation_space(self.den_shape, goal_type, use_time)
 		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.staggered.shape, synchronized)
 		self.init_gen = (lambda: self.get_state_with(init_field_gen())) if init_field_gen else self.get_random_state
+		self.vis_extractor = (lambda s: np.squeeze(np.append(s.velocity.staggered, np.pad(s.density, ((0,0),(0,1),(0,1),(0,0)))))) if all_visible else(lambda s: np.squeeze(s.density))
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim,
-			lambda s: np.squeeze(s.density), self.get_random_state, act_type, goal_type, 
+			self.vis_extractor, self.get_random_state, act_type, goal_type, 
 			self.den_shape, act_dim, epis_len, goal_field_gen)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
@@ -47,10 +75,8 @@ class NavierEnv(gym.Env):
 		self.pass_state = None
 		self.init_state = None
 		self.goal_obs = None
-		self.renderer = None
-		self.file_renderer = None
-		self.live_plotter = None
-		self.file_plotter = None
+		self.lviz = None
+		self.fviz = None
 
 	def reset(self):
 		self.init_state = self.init_gen()
@@ -58,23 +84,23 @@ class NavierEnv(gym.Env):
 		self.pass_state = self.init_state.copied_with()
 		self.goal_obs = self.goal_gen(self.init_state.copied_with())
 		self.step_idx = 0
-		return self.obs_gen(np.squeeze(self.cont_state.density), self.goal_obs, self.step_idx)
+		return self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx)
 
 	def step(self, action):
 		self.step_idx += 1
 
-		old_obs = np.squeeze(self.cont_state.density)
+		old_obs = self.vis_extractor(self.cont_state)
 
 		forces = self.force_gen(action)
 
 		self.cont_state = self.step_sim(self.cont_state, forces)
 		self.pass_state = self.physics.step(self.pass_state, self.delta_time)
-		new_obs = np.squeeze(self.cont_state.density)
+		new_obs = self.vis_extractor(self.cont_state)
 
 		mse_old = np.sum((self.goal_obs - old_obs) ** 2)
 		mse_new = np.sum((self.goal_obs - new_obs) ** 2)
 
-		obs = self.obs_gen(np.squeeze(self.cont_state.density), self.goal_obs, self.step_idx)
+		obs = self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx)
 		reward = self.rew_gen(mse_old, mse_new, forces)
 		done = self.step_idx == self.epis_len
 
@@ -83,37 +109,31 @@ class NavierEnv(gym.Env):
 
 		return obs, reward, done, {}
 
-	def render(self, mode='v'):
-		fields = [self.cont_state.density.reshape(-1),
-					self.pass_state.density.reshape(-1),
-					self.init_state.density.reshape(-1),
-					self.goal_obs.reshape(-1)]
+	def render(self, mode='f'):
+		fields, labels = self.get_fields_and_labels()
 
-		labels = ['Controlled Simulation',
-					'Uncontrolled Simulation',
-					'Initial Density Field',
-					'Goal Density Field']
+		ndim = len(self.den_shape)
+		max_value = 1
+		signed = False
 
-		if mode == 'v':
-			if self.renderer is None:
-				self.renderer = visualization.Renderer()
-			self.renderer.render(15, 1, 500, 500, self.cont_state.density, 
-				self.goal_obs.reshape([1] + list(self.goal_obs.shape) + [1]), 
-				self.pass_state.density, False)
-		elif mode == 'p':
-			if self.live_plotter is None:
-				self.live_plotter = visualization.LivePlotter()
-			self.live_plotter.render(fields, labels)
+		if mode == 'l':
+			frame_rate = 15
+			if self.lviz is None:
+				if ndim == 1:
+					self.lviz = visualization.LivePlotter()
+				elif ndim == 2:
+					self.lviz = visualization.LiveRenderer()
+			self.lviz.render(fields, labels, max_value, signed, frame_rate)
 		elif mode == 'f':
-			if self.file_plotter is None:
-				self.file_plotter = visualization.FilePlotter('SpinningNavier-%s' % self.exp_name)
-			self.file_plotter.render(fields, labels, 'Velocity', self.epis_idx, self.step_idx, self.epis_len)
-		elif mode == 'a':
-			if self.file_renderer is None:
-				self.file_renderer = visualization.FileRenderer('SpinningNavier-%s' % self.exp_name)
-			self.file_renderer.render(1, 500, 500, 'Velocity', self.epis_idx, self.step_idx, self.epis_len, 
-				self.cont_state.density, self.goal_obs.reshape([1] + list(self.goal_obs.shape) + [1]),
-				self.pass_state.density, False)
+			remove_frames = True
+			category_name = 'SpinningNavier-%s' % self.exp_name
+			if self.fviz is None:
+				if ndim == 1:
+					self.fviz = visualization.FilePlotter(category_name)
+				elif ndim == 2:
+					self.fviz = visualization.FileRenderer(category_name)
+			self.fviz.render(fields, labels, max_value, signed, 'Density', 
+				self.epis_idx, self.step_idx, self.epis_len, remove_frames)
 		else:
 			raise NotImplementedError()
 

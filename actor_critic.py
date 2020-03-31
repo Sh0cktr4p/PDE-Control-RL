@@ -61,7 +61,24 @@ class CNN(torch.nn.Module):
 
 		for j in range(len(lin_sizes)):
 			act = activation if j < len(lin_sizes)-1 else output_activation
-			layers += [torch.nn.Linear(ext_lin_sizes[j], ext_lin_sizes[j+1], 3, padding=1), act()]
+			layers += [torch.nn.Linear(ext_lin_sizes[j], ext_lin_sizes[j+1]), act()]
+
+		self.seq = torch.nn.Sequential(*layers)
+
+	def forward(self, x):
+		return self.seq(x)
+
+
+class FCN(torch.nn.Module):
+	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
+		super().__init__()
+
+		layers = [torch.nn.Flatten()]
+		ext_sizes = [np.prod(obs_shape[1:])] + list(sizes)
+
+		for i in range(len(sizes)):
+			act = activation if i < len(sizes) - 1 else output_activation
+			layers += [torch.nn.Linear(ext_sizes[i], ext_sizes[i+1]), act()]
 
 		self.seq = torch.nn.Sequential(*layers)
 

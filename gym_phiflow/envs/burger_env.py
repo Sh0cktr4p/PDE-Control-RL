@@ -9,8 +9,33 @@ default_act_points = util.act_points((16,), 0)
 
 
 class BurgerEnv(gym.Env):
-	# Visualization, Plot, File
-	metadata = {'render.modes': ['v', 'p', 'f']}
+	# Live, File
+	metadata = {'render.modes': ['l', 'f']}
+
+	def get_fields_and_labels(self):
+		ndim = len(self.shape)
+
+		if ndim == 1:
+			fields = [np.real(self.cont_state.velocity).reshape(-1),
+					np.real(self.pass_state.velocity).reshape(-1),
+					np.real(self.init_state.velocity).reshape(-1),
+					self.goal_obs.reshape(-1)]
+
+			labels = ['Controlled Simulation',
+					'Uncontrolled Simulation',
+					'Initial Density Field',
+					'Goal Density Field']
+		elif ndim == 2:
+			fields = [self.cont_state.velocity,
+					self.init_state.velocity,
+					self.goal_obs.reshape([1] + list(self.goal_obs.shape))]
+			labels = ['Controlled Simulation',
+					'Initial Density Field',
+					'Goal Density Field']
+		else:
+			raise NotImplementedError()
+		
+		return fields, labels
 
 	def get_random_state(self):
 		return phi.flow.Burger(phi.flow.Domain(self.shape), phi.flow.math.randn(levels=[0,0,self.vel_scale]), viscosity=0.2)
@@ -46,9 +71,8 @@ class BurgerEnv(gym.Env):
 		self.pass_state = None
 		self.init_state = None
 		self.goal_obs = None
-		self.renderer = None
-		self.live_plotter = None
-		self.file_plotter = None
+		self.lviz = None
+		self.fviz = None
 
 	def reset(self):
 		self.cont_state = self.get_random_state()
@@ -83,29 +107,31 @@ class BurgerEnv(gym.Env):
 
 		return obs, reward, done, {}
 
-	def render(self, mode='p'):
-		fields = [np.real(self.cont_state.velocity).reshape(-1), 
-					np.real(self.pass_state.velocity).reshape(-1),
-					np.real(self.init_state.velocity).reshape(-1),
-					self.goal_obs.reshape(-1)]
-		
-		labels = ['Controlled Simulation',
-					'Uncontrolled Simulation',
-					'Initial Field',
-					'Goal Field']
-		
-		if mode == 'v':
-			if self.renderer is None:
-				self.renderer = visualization.Renderer()
-			self.renderer.render(self.cont_state.velocity, None, 15, 1, 500, 500)
-		elif mode == 'p':
-			if self.live_plotter is None:
-				self.live_plotter = visualization.LivePlotter()
-			self.live_plotter.render(fields, labels)
+	def render(self, mode='f'):
+		fields, labels = self.get_fields_and_labels()
+
+		ndim = len(self.shape)
+		max_value = 2
+		signed = True
+
+		if mode == 'l':
+			frame_rate = 15
+			if self.lviz is None:
+				if ndim == 1:
+					self.lviz = visualization.LivePlotter()
+				elif ndim == 2:
+					self.lviz = visualization.LiveRenderer()
+			self.lviz.render(fields, labels, max_value, signed, frame_rate)
 		elif mode == 'f':
-			if self.file_plotter is None:
-				self.file_plotter = visualization.FilePlotter('SpinningBurger-%s' % self.exp_name)
-			self.file_plotter.render(fields, labels, 'Velocity', self.epis_idx, self.step_idx, self.epis_len)
+			remove_frames = True
+			category_name = 'SpinningBurger-%s' % self.exp_name
+			if self.fviz is None:
+				if ndim == 1:
+					self.fviz = visualization.FilePlotter(category_name)
+				elif ndim == 2:
+					self.fviz = visualization.FileRenderer(category_name)
+			self.fviz.render(fields, labels, max_value, signed, 'Velocity', 
+				self.epis_idx, self.step_idx, self.epis_len, remove_frames)
 		else:
 			raise NotImplementedError()
 
