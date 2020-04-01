@@ -28,7 +28,7 @@ class NavierEnvContComplete2DShapes(NavierEnv):
 
 class NavierEnvContComplete2DShapesObs(NavierEnv):
 	def __init__(self):
-		super().__init__(name='v15', act_type=util.ActionType.CONTINUOUS,
+		super().__init__(name='v16', act_type=util.ActionType.CONTINUOUS,
 			act_points=block1089, goal_type=util.GoalType.PREDEFINED,
 			rew_type=util.RewardType.ABSOLUTE, synchronized=True,
 			init_field_gen=lambda: shape_field.get_random_field((16, 16)).reshape(1, 16, 16, 1),

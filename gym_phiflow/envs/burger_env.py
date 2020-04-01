@@ -107,7 +107,7 @@ class BurgerEnv(gym.Env):
 
 		return obs, reward, done, {}
 
-	def render(self, mode='f'):
+	def render(self, mode='l'):
 		fields, labels = self.get_fields_and_labels()
 
 		ndim = len(self.shape)

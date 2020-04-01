@@ -5,33 +5,54 @@ import phi.flow
 
 
 class ActionType(Enum):
-	CONTINUOUS = 0
-	UNMODIFIED = 1
-	DISCRETE_2 = 2
-	DISCRETE_3 = 3
+	CONTINUOUS = 0			# Forces can be any floating point value
+	UNMODIFIED = 1			# No forces are applied
+	DISCRETE_2 = 2			# Forces can be +1 or -1
+	DISCRETE_3 = 3			# Forces can be +1, 0 or -1
 
 
 class GoalType(Enum):
-	ZERO = 0
-	RANDOM = 1
-	REACHABLE = 2
-	PREDEFINED = 3
-	CONSTANT_FORCE = 4
+	ZERO = 0				# Goal field is zero
+	RANDOM = 1				# Goal field is random other initial state
+	REACHABLE = 2			# Goal field is precomputed by applying random actions at each step
+	PREDEFINED = 3			# Custom goal creation routine
+	CONSTANT_FORCE = 4		# Goal field is precomputed by applying the same random action at each field value and time step
 
 
 class RewardType(Enum):
-	ABSOLUTE = 0
-	RELATIVE = 1
-	ABS_FORC = 2
+	ABSOLUTE = 0			# Consider only absolute deviation from goal field
+	RELATIVE = 1			# Consider the change in deviation from goal field
+	ABS_FORC = 2			# Consider absolute deviation from goal field and the amount of forces created
 
 
+# Assembles forces array
+# indices:		indices of action parameters, locations where actions are applied
+# forces:		forces array matching the dimensions of the field onto which they should be applied
+# actions:		array of actions to take at each index
+#
+# returns:		finished forces array
 def create_forces(indices, forces, actions):
 	forces[indices] = actions.reshape(-1)
 	return forces
 
+
+# Decodes n-ary discrete actions
+# action: 		the action to decode
+# point count:	number of controllable field points, number of digits of decoded action value
+# action count:	number of discrete actions possible per action point, base of decoded action value
+#
+# returns:	 	array of (point_count) values ranging from zero to (action_count-1)
 def decode_action(action, point_count, action_count):
 	return action // action_count ** np.arange(point_count) % action_count
 
+
+# Converts encoded actions to forces
+# act_type:		enum value describing the space of possible actions
+# act_params:	bool array defining which parameters in the field are controlled
+# forces_shape:	tuple describing the shape of the field onto which the forces are added
+# synchronized:	flag determining whether action parameters are controlled by just one action for all
+#
+# returns:		lambda function creating a forces array to a given action
 def get_force_gen(act_type, act_params, forces_shape, synchronized):
 	act_params = act_params.reshape(forces_shape)
 
@@ -52,6 +73,13 @@ def get_force_gen(act_type, act_params, forces_shape, synchronized):
 		raise NotImplementedError()
 
 
+# Determines the output space of the network
+# Discrete action spaces -> Classifier for n-ary encoded actions
+# Continuous action spaces -> Regression, each output neuron describes one action
+# act_type: 	enum value describing the space of possible actions
+# act_dim:		number of action parameters
+#
+# returns:		gym space describing network output
 def get_action_space(act_type, act_dim):
 	if act_type == ActionType.CONTINUOUS:
 		return gym.spaces.Box(-np.inf, np.inf, shape=(act_dim,), dtype=np.float32)
@@ -63,30 +91,49 @@ def get_action_space(act_type, act_dim):
 		raise NotImplementedError()
 
 
-def get_observation_space(field_shape, goal_type, use_time):
+# Determines the input space of the network
+# vis_shape:	shape of the observable part of the current state
+# goal_type:	enum value indicating if the goal state should be appended to the observation space
+# use_time:		flag indicating if the network should get information about the current position in time
+#
+# returns:		gym space describing network input
+def get_observation_space(vis_shape, goal_type, use_time):
 	if goal_type == GoalType.ZERO:
-		obs_shape = [1] + list(field_shape)
+		obs_shape = vis_shape
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
 		or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
-		obs_shape = [2] + list(field_shape)
+		obs_shape = increment_channels(vis_shape)
 	else:
 		raise NotImplementedError()
 
 	if use_time:
 		raise NotImplementedError()
-		#obs_size += 1
 
 	return gym.spaces.Box(-np.inf, np.inf, shape=obs_shape, dtype=np.float32)
 
 
-def run_trajectory(force_gen, action_gen, step_fn, vis_extractor, ep_len, state):
-	for _ in range(ep_len):
+# Precomputes a trajectory with actions provided by a generator function
+# action_gen:		custom action generator function
+# force_gen: 		output function of a get_force_gen() call, transforms actions to forces array
+# step_fn:			function provided by environment to apply forces and generate new states by a physics object
+# vis_extractor:	function provided by environment extracting the observable part from a given state
+# epis_len:			length of a trajectory
+# state:			initial state for simulation
+#
+# returns:			visible part of a goal state from a precomputed trajectory
+def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, state):
+	for _ in range(epis_len):
 		forces = force_gen(action_gen())
 		state = step_fn(state, forces)
 
 	return vis_extractor(state)
 
 
+# Yields a function for generating random actions mimicking network outputs
+# act_type:			enum value describing the space of possible actions
+# act_dim:			number of action parameters
+#
+# returns:			random action generator lambda function
 def get_act_gen(act_type, act_dim, enf_disc=False):
 	if act_type == ActionType.CONTINUOUS:
 		if enf_disc:
@@ -103,47 +150,73 @@ def get_act_gen(act_type, act_dim, enf_disc=False):
 		raise NotImplementedError()
 
 
+# Returns a function to generate a goal field for a given initial input state
+# force_gen:		output function of a get_force_gen() call, transforms actions to forces array
+# step_fn:			function provided by environment to apply forces and generate new states by a physics object
+# vis_extractor:	function provided by environment extracting the observable part from a goal state
+# rand_state_gen:	function provided by environment to create custom random states
+# act_type:			enum value describing the space of possible actions
+# goal_type:		enum value distinguishing the kinds of goal states
+# vis_shape:		shape of the observable part of the goal state
+# act_dim:			number of action parameters
+# epis_len:			length of a trajectory
+# goal_field_gen:	custom goal field generation routine, only has effect with corresponding goal type
+#
+# returns:			lambda goal generator function
 def get_goal_gen(force_gen, step_fn, vis_extractor, rand_state_gen, act_type, 
-		goal_type, vis_shape, act_dim, ep_len, goal_field_gen=None):
+		goal_type, vis_shape, act_dim, epis_len, goal_field_gen=None):
 	if goal_type == GoalType.ZERO:
 		return lambda s: np.zeros(shape=vis_shape, dtype=np.float32)
 	elif goal_type == GoalType.RANDOM:
 		return lambda s: vis_extractor(rand_state_gen())
 	elif goal_type == GoalType.REACHABLE:
 		action_gen = get_act_gen(act_type, act_dim, enf_disc=True)
-		return lambda s: run_trajectory(force_gen, action_gen, step_fn, vis_extractor, ep_len, s)
+		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, s)
 	elif goal_type == GoalType.PREDEFINED:
 		assert goal_field_gen is not None
 		return lambda s: np.squeeze(goal_field_gen())
 	elif goal_type == GoalType.CONSTANT_FORCE:
 		action_gen = get_act_gen(act_type, act_dim, enf_disc=False)
-		return lambda s: run_trajectory(force_gen, lambda: action_gen(), step_fn, vis_extractor, ep_len, s)
+		return lambda s: run_trajectory(lambda: action_gen(), force_gen, step_fn, vis_extractor, epis_len, s)
 	else:
 		raise NotImplementedError()
 
 
+# Creates a action points bool array to specify the points where to apply forces
+# size:		tuple describing the size of the controlled field
+# indices:	tuple of lists specifying the controllable parameters
+#
+# returns:	bool array describing field size and where actions can be applied
 def act_points(size, indices):
 	act = np.zeros(size, dtype=np.bool)
 	act[indices] = True
 	return act
 
 
+# Generator returning functions to asseble the observation space
+# goal_type:	enum value indicating if the goal state should be appended to the observation space
+# use_time:		flag indicating if the network should get information about the current position in time
+# epis_len:		length of a trajectory, used to normalize time values when supplied
+#
+# returns:		lambda network input assembly function
 def get_obs_gen(goal_type, use_time, epis_len):
+	if use_time:
+		raise NotImplementedError()
+
 	if goal_type == GoalType.ZERO:
-		if use_time:
-			return lambda v, g, t: np.append(v, t / epis_len)
-		else:
-			return lambda v, g, t: np.expand_dims(v, 0)
+		return lambda v, g, t: v
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
 			or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
-		if use_time:
-			return lambda v, g, t: np.append(np.stack((v, g), axis=-1), t)
-		else:
-			return lambda v, g, t: np.stack((v, g), axis=0)#.reshape(-1)
+		return lambda v, g, t: np.append(v, g, axis=-1)#.reshape(-1)
 	else:
 		raise NotImplementedError()
 
 
+# Returns reward functions corresponding to specifications
+# rew_type:		enum value distinguishing the types of reward functions
+# force_factor:	value to further control the significance of forces amount for reward values
+#
+# returns: 		lambda reward function
 def get_rew_gen(rew_type, force_factor):
 	if rew_type == RewardType.ABSOLUTE:
 		return lambda o, n, f: -n
@@ -155,6 +228,15 @@ def get_rew_gen(rew_type, force_factor):
 		raise NotImplementedError()
 
 
+# Expands action points array to encorporate action parameters in every available direction
+# If a field value is controllable, it should be controllable in every available axis
+# points: 		bool array describing at which points in the field forces can be applied
+# 
+# returns: 		bool array describing at which points in the field forces can be applied in which directions
 def get_all_act_params(points):
 	points = np.squeeze(points)
-	return np.squeeze(np.stack([points for _ in range(points.ndim)], points.ndim))
+	return np.stack([points for _ in range(points.ndim)], points.ndim)
+
+
+def increment_channels(shape):
+	return tuple(list(shape[:-1]) + [shape[-1] + 1])

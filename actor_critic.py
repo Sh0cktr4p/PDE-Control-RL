@@ -3,9 +3,12 @@ import torch
 import numpy as np
 import traceback
 
+
 class RNN(torch.nn.Module):
+
 	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
+		print('Using Recurrent Network')
 		self.x_size = np.prod(obs_shape)
 		self.h_size = sizes[0]
 		self.y_size = sizes[-1]
@@ -44,8 +47,14 @@ class RNN(torch.nn.Module):
 
 
 class CNN(torch.nn.Module):
-	def __init__(self, obs_shape, conv_sizes, lin_sizes, activation, output_activation=torch.nn.Identity):
+
+	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
+		print('Using Convolutional Network')
+
+		conv_sizes = sizes[0]
+		lin_sizes = sizes[1]
+
 		layers = []
 
 		# Add input channels to conv sizes
@@ -57,7 +66,7 @@ class CNN(torch.nn.Module):
 		layers.append(torch.nn.Flatten())
 
 		# Add flatten layer output to lin sizes
-		ext_lin_sizes = [(np.prod(obs_shape[1:]) * conv_sizes[-1]) // 2 ** (2 * len(conv_sizes))] + list(lin_sizes)
+		ext_lin_sizes = [(np.prod(obs_shape) * conv_sizes[-1]) // 2 ** (2 * len(conv_sizes))] + list(lin_sizes)
 
 		for j in range(len(lin_sizes)):
 			act = activation if j < len(lin_sizes)-1 else output_activation
@@ -70,11 +79,12 @@ class CNN(torch.nn.Module):
 
 
 class FCN(torch.nn.Module):
+
 	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
-
+		print('Using fully connected network')
 		layers = [torch.nn.Flatten()]
-		ext_sizes = [np.prod(obs_shape[1:])] + list(sizes)
+		ext_sizes = [np.prod(obs_shape)] + list(sizes)
 
 		for i in range(len(sizes)):
 			act = activation if i < len(sizes) - 1 else output_activation
@@ -88,7 +98,7 @@ class FCN(torch.nn.Module):
  
 def mlp(obs_shape, sizes, activation, output_activation=torch.nn.Identity):
 	#return RNN(obs_shape, sizes, activation, output_activation)
-
+	
 	layers = []
 
 	print(obs_shape)
@@ -113,9 +123,9 @@ def mlp(obs_shape, sizes, activation, output_activation=torch.nn.Identity):
 
 class MLPCategoricalActor(core.Actor):
 
-	def __init__(self, obs_shape, act_dim, hidden_sizes, activation):
+	def __init__(self, obs_shape, act_dim, hidden_sizes, activation, network):
 		super().__init__()
-		self.logits_net = mlp(obs_shape, list(hidden_sizes) + [act_dim], activation)
+		self.logits_net = network(obs_shape, list(hidden_sizes) + [act_dim], activation)
 
 	def _distribution(self, obs):
 		logits = self.logits_net(obs)
@@ -127,11 +137,11 @@ class MLPCategoricalActor(core.Actor):
 
 class MLPGaussianActor(core.Actor):
 
-	def __init__(self, obs_shape, act_dim, hidden_sizes, activation):
+	def __init__(self, obs_shape, act_dim, hidden_sizes, activation, network):
 		super().__init__()
 		log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
 		self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
-		self.mu_net = mlp(obs_shape, list(hidden_sizes) + [act_dim], activation)
+		self.mu_net = network(obs_shape, list(hidden_sizes) + [act_dim], activation)
 
 	def _distribution(self, obs):
 		mu = self.mu_net(obs)
@@ -144,9 +154,9 @@ class MLPGaussianActor(core.Actor):
 
 class MLPCritic(torch.nn.Module):
 
-	def __init__(self, obs_shape, hidden_sizes, activation):
+	def __init__(self, obs_shape, hidden_sizes, activation, network):
 		super().__init__()
-		self.v_net = mlp(obs_shape, list(hidden_sizes) + [1], activation)
+		self.v_net = network(obs_shape, list(hidden_sizes) + [1], activation)
 
 	def forward(self, obs):
 		return torch.squeeze(self.v_net(obs), -1) # Critical to ensure v has right shape.
@@ -155,21 +165,21 @@ class MLPCritic(torch.nn.Module):
 
 class MLPActorCritic(torch.nn.Module):
 
-
 	def __init__(self, observation_space, action_space, 
-				 hidden_sizes=(64,64), activation=torch.nn.Tanh):
+				 hidden_sizes=(64,64), activation=torch.nn.Tanh, 
+				 network=FCN):
 		super().__init__()
 
 		obs_shape = observation_space.shape
 
 		# policy builder depends on action space
 		if isinstance(action_space, core.Box):
-			self.pi = MLPGaussianActor(obs_shape, action_space.shape[0], hidden_sizes, activation)
+			self.pi = MLPGaussianActor(obs_shape, action_space.shape[0], hidden_sizes, activation, network)
 		elif isinstance(action_space, core.Discrete):
-			self.pi = MLPCategoricalActor(obs_shape, action_space.n, hidden_sizes, activation)
+			self.pi = MLPCategoricalActor(obs_shape, action_space.n, hidden_sizes, activation, network)
 
 		# build value function
-		self.v  = MLPCritic(obs_shape, hidden_sizes, activation)
+		self.v  = MLPCritic(obs_shape, hidden_sizes, activation, network)
 
 	def step(self, obs):
 		obs = torch.as_tensor(np.expand_dims(obs.numpy(), 0))

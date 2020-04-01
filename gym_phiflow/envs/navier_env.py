@@ -7,6 +7,19 @@ import numpy as np
 default_act_points = util.act_points((16,), 0)
 
 
+def pad_to_staggered_size(field):
+	return np.pad(field, [(0,int(v!=1)) for v in field.shape])
+
+
+def stack_fields(state):
+	field_stack = np.append(state.velocity.staggered, pad_to_staggered_size(state.density), axis=-1)
+	return np.squeeze(field_stack, axis=0)
+
+
+def with_channel(shape):
+	return tuple(list(shape) + [1])
+
+
 class NavierEnv(gym.Env):
 	# Live, File
 	metadata = {'render.modes': ['l', 'f']}
@@ -60,15 +73,18 @@ class NavierEnv(gym.Env):
 		self.den_scale = den_scale
 		self.exp_name = name
 		self.den_shape = tuple(d-1 for d in act_points.shape)	# Act points refers to staggered velocity grid
+		vis_shape = util.increment_channels(act_params.shape) if all_visible else with_channel(self.den_shape)
 		self.physics = phi.flow.SmokePhysics()
 		self.action_space = util.get_action_space(act_type, act_dim)
-		self.observation_space = util.get_observation_space(self.den_shape, goal_type, use_time)
+		self.observation_space = util.get_observation_space(vis_shape, goal_type, use_time)
 		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.staggered.shape, synchronized)
 		self.init_gen = (lambda: self.get_state_with(init_field_gen())) if init_field_gen else self.get_random_state
-		self.vis_extractor = (lambda s: np.squeeze(np.append(s.velocity.staggered, np.pad(s.density, ((0,0),(0,1),(0,1),(0,0)))))) if all_visible else(lambda s: np.squeeze(s.density))
+		self.vis_extractor = (lambda s: stack_fields(s)) if all_visible else (lambda s: np.squeeze(s.density, axis=0))
+		goal_vis_extractor = (lambda s: np.squeeze(pad_to_staggered_size(s.density), axis=0)) if all_visible else (lambda s: np.squeeze(s.density, axis=0))
+		goal_vis_shape = with_channel(act_points.shape) if all_visible else with_channel(self.den_shape)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim,
-			self.vis_extractor, self.get_random_state, act_type, goal_type, 
-			self.den_shape, act_dim, epis_len, goal_field_gen)
+			goal_vis_extractor, self.get_random_state, act_type, goal_type, 
+			goal_vis_shape, act_dim, epis_len, goal_field_gen)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
 		self.cont_state = None

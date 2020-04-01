@@ -8,9 +8,12 @@ import time
 import datetime
 import actor_critic
 
-def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, name_tag=''):
+def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=''):
+	if label != '' and label[0] != '_':
+		label = '_' + label
+	
 	name = 'gym_phiflow:%s-v%s' % (sim_name, key)
-	path = 'output/%s_%s%s' % (sim_name, exp_map[key], name_tag)
+	path = 'output/%s_%s%s' % (sim_name, exp_map[key], label)
 
 	env_fn = lambda: gym.make(name)
 
@@ -31,5 +34,5 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, name_t
 		file.write(time_msg)
 
 
-run_experiment('burger', '105', 1000, 100)
+run_experiment('navier', '16', 1, 100, label='cnn')
 #[run_experiment('burger', '10%i' % i) for i in range(1, 5)]
