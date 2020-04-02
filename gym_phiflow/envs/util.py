@@ -92,17 +92,18 @@ def get_action_space(act_type, act_dim):
 
 
 # Determines the input space of the network
-# vis_shape:	shape of the observable part of the current state
-# goal_type:	enum value indicating if the goal state should be appended to the observation space
-# use_time:		flag indicating if the network should get information about the current position in time
+# vis_shape:		shape of the observable part of the current state
+# goal_type:		enum value indicating if the goal state should be appended to the observation space
+# goal_channels:	determines how many channels should be added if the goal is included in the observation space
+# use_time:			flag indicating if the network should get information about the current position in time
 #
 # returns:		gym space describing network input
-def get_observation_space(vis_shape, goal_type, use_time):
+def get_observation_space(vis_shape, goal_type, goal_channels, use_time):
 	if goal_type == GoalType.ZERO:
 		obs_shape = vis_shape
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
 		or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
-		obs_shape = increment_channels(vis_shape)
+		obs_shape = increase_channels(vis_shape, goal_channels)
 	else:
 		raise NotImplementedError()
 
@@ -174,7 +175,7 @@ def get_goal_gen(force_gen, step_fn, vis_extractor, rand_state_gen, act_type,
 		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, s)
 	elif goal_type == GoalType.PREDEFINED:
 		assert goal_field_gen is not None
-		return lambda s: np.squeeze(goal_field_gen())
+		return lambda s: np.squeeze(goal_field_gen(), axis=0)
 	elif goal_type == GoalType.CONSTANT_FORCE:
 		action_gen = get_act_gen(act_type, act_dim, enf_disc=False)
 		return lambda s: run_trajectory(lambda: action_gen(), force_gen, step_fn, vis_extractor, epis_len, s)
@@ -207,7 +208,7 @@ def get_obs_gen(goal_type, use_time, epis_len):
 		return lambda v, g, t: v
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
 			or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
-		return lambda v, g, t: np.append(v, g, axis=-1)#.reshape(-1)
+		return lambda v, g, t: np.append(v, g, axis=-1)
 	else:
 		raise NotImplementedError()
 
@@ -238,5 +239,5 @@ def get_all_act_params(points):
 	return np.stack([points for _ in range(points.ndim)], points.ndim)
 
 
-def increment_channels(shape):
-	return tuple(list(shape[:-1]) + [shape[-1] + 1])
+def increase_channels(shape, add_channels):
+	return tuple(list(shape[:-1]) + [shape[-1] + add_channels])

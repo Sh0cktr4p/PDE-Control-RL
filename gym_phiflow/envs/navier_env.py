@@ -20,6 +20,17 @@ def with_channel(shape):
 	return tuple(list(shape) + [1])
 
 
+def get_vis_extractor(all_visible):
+	if all_visible:
+		return lambda s: stack_fields(s)
+	else:
+		return lambda s: np.squeeze(s.density, axis=0)
+
+
+def pad_to_shape(field, shape):
+	return np.pad(field, [(0, gs-fs) for fs, gs in zip(field.shape, shape)])
+
+
 class NavierEnv(gym.Env):
 	# Live, File
 	metadata = {'render.modes': ['l', 'f']}
@@ -40,7 +51,7 @@ class NavierEnv(gym.Env):
 		elif ndim == 2:
 			fields = [self.cont_state.density,
 					self.init_state.density,
-					self.goal_obs.reshape([1] + list(self.goal_obs.shape) + [1])]
+					self.goal_obs.reshape([1] + list(self.goal_obs.shape))]
 			labels = ['Controlled Simulation',
 					'Initial Density Field',
 					'Goal Density Field']
@@ -55,6 +66,17 @@ class NavierEnv(gym.Env):
 	def get_random_state(self):
 		return phi.flow.Smoke(phi.flow.Domain(self.den_shape), density=phi.flow.math.randn(levels=[self.den_scale]), buoyancy_factor=0.0)
 
+	def get_init_field_gen(self, init_field_gen):
+		if init_field_gen:
+			return lambda: self.get_state_with(init_field_gen())
+		else:
+			return self.get_random_state
+
+	def combine_to_obs(self, state, goal):
+		reshaped_state_obs = self.vis_extractor(state)
+		reshaped_goal_obs = pad_to_shape(goal, list(reshaped_state_obs.shape[:-1]) + [1])
+		return self.obs_gen(reshaped_state_obs, reshaped_goal_obs, self.step_idx)
+
 	def step_sim(self, state, forces):
 		staggered_forces = phi.flow.math.StaggeredGrid(forces.reshape(state.velocity.staggered.shape))
 		controlled_state = state.copied_with(velocity=state.velocity + staggered_forces * self.delta_time)
@@ -64,27 +86,38 @@ class NavierEnv(gym.Env):
 			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, 
 			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, 
 			synchronized=False, init_field_gen=None, goal_field_gen=None, all_visible=False):
-		act_params = util.get_all_act_params(act_points)	# Multi-dimensional support
+		# Multi-dimensional fields have parameters for each of these directions at each point; act_points does not reflect that
+		act_params = util.get_all_act_params(act_points)
+		
 		act_dim = 1 if synchronized else np.sum(act_params)
+
 		self.step_idx = 0
 		self.epis_idx = 0
 		self.epis_len = epis_len
 		self.delta_time = dt
 		self.den_scale = den_scale
 		self.exp_name = name
-		self.den_shape = tuple(d-1 for d in act_points.shape)	# Act points refers to staggered velocity grid
-		vis_shape = util.increment_channels(act_params.shape) if all_visible else with_channel(self.den_shape)
 		self.physics = phi.flow.SmokePhysics()
+
+		# Density field is one smaller in every dimension than the velocity field
+		self.den_shape = tuple(d-1 for d in act_points.shape)
+		# If both fields are visible, pad the density field and stack it onto the staggered velocity field
+		vis_shape = util.increase_channels(act_params.shape, 1) if all_visible else with_channel(self.den_shape)
+		# Goal field has the shape of the density field with one channel dimension
+		goal_vis_shape = with_channel(self.den_shape)
+		# Forces array has the same shape as the velocity field
+		forces_shape = self.get_random_state().velocity.staggered.shape
+
 		self.action_space = util.get_action_space(act_type, act_dim)
-		self.observation_space = util.get_observation_space(vis_shape, goal_type, use_time)
-		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.staggered.shape, synchronized)
-		self.init_gen = (lambda: self.get_state_with(init_field_gen())) if init_field_gen else self.get_random_state
-		self.vis_extractor = (lambda s: stack_fields(s)) if all_visible else (lambda s: np.squeeze(s.density, axis=0))
-		goal_vis_extractor = (lambda s: np.squeeze(pad_to_staggered_size(s.density), axis=0)) if all_visible else (lambda s: np.squeeze(s.density, axis=0))
-		goal_vis_shape = with_channel(act_points.shape) if all_visible else with_channel(self.den_shape)
+		self.observation_space = util.get_observation_space(vis_shape, goal_type, 1, use_time)
+		self.force_gen = util.get_force_gen(act_type, act_params, forces_shape, synchronized)
+		
+		self.init_gen = self.get_init_field_gen(init_field_gen)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim,
-			goal_vis_extractor, self.get_random_state, act_type, goal_type, 
+			lambda s: np.squeeze(s.density, axis=0), self.get_random_state, act_type, goal_type, 
 			goal_vis_shape, act_dim, epis_len, goal_field_gen)
+
+		self.vis_extractor = get_vis_extractor(all_visible)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
 		self.cont_state = None
@@ -100,23 +133,24 @@ class NavierEnv(gym.Env):
 		self.pass_state = self.init_state.copied_with()
 		self.goal_obs = self.goal_gen(self.init_state.copied_with())
 		self.step_idx = 0
-		return self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx)
+		
+		return self.combine_to_obs(self.cont_state, self.goal_obs)
 
 	def step(self, action):
 		self.step_idx += 1
 
-		old_obs = self.vis_extractor(self.cont_state)
+		old_obs = np.squeeze(self.cont_state.density, axis=0)
 
 		forces = self.force_gen(action)
 
 		self.cont_state = self.step_sim(self.cont_state, forces)
 		self.pass_state = self.physics.step(self.pass_state, self.delta_time)
-		new_obs = self.vis_extractor(self.cont_state)
+		new_obs = np.squeeze(self.cont_state.density, axis=0)
 
 		mse_old = np.sum((self.goal_obs - old_obs) ** 2)
 		mse_new = np.sum((self.goal_obs - new_obs) ** 2)
 
-		obs = self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx)
+		obs = self.combine_to_obs(self.cont_state, self.goal_obs)
 		reward = self.rew_gen(mse_old, mse_new, forces)
 		done = self.step_idx == self.epis_len
 
@@ -125,7 +159,7 @@ class NavierEnv(gym.Env):
 
 		return obs, reward, done, {}
 
-	def render(self, mode='f'):
+	def render(self, mode='l'):
 		fields, labels = self.get_fields_and_labels()
 
 		ndim = len(self.den_shape)

@@ -53,12 +53,13 @@ class CNN(torch.nn.Module):
 		print('Using Convolutional Network')
 
 		conv_sizes = sizes[0]
-		lin_sizes = sizes[1]
+		lin_sizes = sizes[1] + [sizes[2]]
 
 		layers = []
 
 		# Add input channels to conv sizes
-		ext_conv_sizes = obs_shape[0] + list(conv_sizes)
+		ext_conv_sizes = [obs_shape[-1]] + list(conv_sizes)
+		print('Filter counts: ', ext_conv_sizes)
 
 		for i in range(len(conv_sizes)):
 			layers += [torch.nn.Conv2d(ext_conv_sizes[i], ext_conv_sizes[i+1], 3, padding=1), torch.nn.MaxPool2d(2), activation()]
@@ -66,7 +67,8 @@ class CNN(torch.nn.Module):
 		layers.append(torch.nn.Flatten())
 
 		# Add flatten layer output to lin sizes
-		ext_lin_sizes = [(np.prod(obs_shape) * conv_sizes[-1]) // 2 ** (2 * len(conv_sizes))] + list(lin_sizes)
+		ext_lin_sizes = [(np.prod(obs_shape[:-1]) * conv_sizes[-1]) // 2 ** (2 * len(conv_sizes))] + list(lin_sizes)
+		print('Fully connected layer sizes: ', ext_lin_sizes)
 
 		for j in range(len(lin_sizes)):
 			act = activation if j < len(lin_sizes)-1 else output_activation
@@ -75,7 +77,7 @@ class CNN(torch.nn.Module):
 		self.seq = torch.nn.Sequential(*layers)
 
 	def forward(self, x):
-		return self.seq(x)
+		return self.seq(x.permute(0, 3, 1, 2))
 
 
 class FCN(torch.nn.Module):
@@ -102,6 +104,8 @@ def mlp(obs_shape, sizes, activation, output_activation=torch.nn.Identity):
 	layers = []
 
 	print(obs_shape)
+
+	obs_shape = tuple([obs_shape[-1]] + list(obs_shape[:-1]))
 
 	if(len(obs_shape) == 3) and np.prod(obs_shape[1:]) % 64 == 0 and obs_shape[1] == obs_shape[2]:
 		print('Using convolutional layers')
