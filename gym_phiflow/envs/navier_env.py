@@ -89,7 +89,7 @@ class NavierEnv(gym.Env):
 		# Multi-dimensional fields have parameters for each of these directions at each point; act_points does not reflect that
 		act_params = util.get_all_act_params(act_points)
 		
-		act_dim = 1 if synchronized else np.sum(act_params)
+		act_dim = len(act_points.shape) if synchronized else np.sum(act_params)
 
 		self.step_idx = 0
 		self.epis_idx = 0
@@ -114,15 +114,15 @@ class NavierEnv(gym.Env):
 		
 		self.init_gen = self.get_init_field_gen(init_field_gen)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim,
-			lambda s: np.squeeze(s.density, axis=0), self.get_random_state, act_type, goal_type, 
+			lambda s: s.density.reshape(goal_vis_shape), self.get_random_state, act_type, goal_type, 
 			goal_vis_shape, act_dim, epis_len, goal_field_gen)
 
 		self.vis_extractor = get_vis_extractor(all_visible)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
-		self.cont_state = None
-		self.pass_state = None
-		self.init_state = None
+		self.cont_state = None	# Controlled state
+		self.pass_state = None	# Passive state
+		self.init_state = None	# Initial state
 		self.goal_obs = None
 		self.lviz = None
 		self.fviz = None
@@ -138,13 +138,14 @@ class NavierEnv(gym.Env):
 
 	def step(self, action):
 		self.step_idx += 1
-
+		
 		old_obs = np.squeeze(self.cont_state.density, axis=0)
 
 		forces = self.force_gen(action)
 
 		self.cont_state = self.step_sim(self.cont_state, forces)
 		self.pass_state = self.physics.step(self.pass_state, self.delta_time)
+
 		new_obs = np.squeeze(self.cont_state.density, axis=0)
 
 		mse_old = np.sum((self.goal_obs - old_obs) ** 2)

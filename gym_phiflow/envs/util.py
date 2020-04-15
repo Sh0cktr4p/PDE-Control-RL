@@ -32,6 +32,8 @@ class RewardType(Enum):
 #
 # returns:		finished forces array
 def create_forces(indices, forces, actions):
+	if actions.size == forces.shape[-1] and actions.size != indices[0].size:
+		actions = np.repeat([actions], indices[0].size // actions.size, axis=0)
 	forces[indices] = actions.reshape(-1)
 	return forces
 
@@ -59,7 +61,7 @@ def get_force_gen(act_type, act_params, forces_shape, synchronized):
 	indices = np.where(act_params)
 	forces = np.zeros(forces_shape)
 
-	act_size = 1 if synchronized else np.sum(act_params)
+	act_size = act_params.shape[-1] if synchronized else np.sum(act_params)
 
 	if act_type == ActionType.CONTINUOUS:
 		return lambda a: create_forces(indices, forces, a)
@@ -120,11 +122,16 @@ def get_observation_space(vis_shape, goal_type, goal_channels, use_time):
 # vis_extractor:	function provided by environment extracting the observable part from a given state
 # epis_len:			length of a trajectory
 # state:			initial state for simulation
+# act_preselected:	flag to show if the same action should be applied at all time steps
 #
 # returns:			visible part of a goal state from a precomputed trajectory
-def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, state):
+def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, state, act_preselected):
+	if act_preselected:
+		action = action_gen()
+		action_gen = lambda: action
+	
 	for _ in range(epis_len):
-		forces = force_gen(action_gen())
+		forces = force_gen(action)
 		state = step_fn(state, forces)
 
 	return vis_extractor(state)
@@ -133,6 +140,7 @@ def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, stat
 # Yields a function for generating random actions mimicking network outputs
 # act_type:			enum value describing the space of possible actions
 # act_dim:			number of action parameters
+# enf_disc:			flag to decide whether to always output discrete numbers regardless of act_type
 #
 # returns:			random action generator lambda function
 def get_act_gen(act_type, act_dim, enf_disc=False):
@@ -140,7 +148,7 @@ def get_act_gen(act_type, act_dim, enf_disc=False):
 		if enf_disc:
 			return lambda: np.random.randint(low=-1, high=2, size=act_dim)
 		else:
-			return lambda: np.repeat(np.random.normal(0, 0.5), act_dim)
+			return lambda: np.repeat(np.random.normal(0, 0.1), act_dim)
 	elif act_type == ActionType.UNMODIFIED:
 		return lambda: np.zeros(shape=(act_dim,))
 	elif act_type == ActionType.DISCRETE_2:
@@ -172,13 +180,13 @@ def get_goal_gen(force_gen, step_fn, vis_extractor, rand_state_gen, act_type,
 		return lambda s: vis_extractor(rand_state_gen())
 	elif goal_type == GoalType.REACHABLE:
 		action_gen = get_act_gen(act_type, act_dim, enf_disc=True)
-		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, s)
+		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, s, False)
 	elif goal_type == GoalType.PREDEFINED:
 		assert goal_field_gen is not None
 		return lambda s: np.squeeze(goal_field_gen(), axis=0)
 	elif goal_type == GoalType.CONSTANT_FORCE:
 		action_gen = get_act_gen(act_type, act_dim, enf_disc=False)
-		return lambda s: run_trajectory(lambda: action_gen(), force_gen, step_fn, vis_extractor, epis_len, s)
+		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, s, True)
 	else:
 		raise NotImplementedError()
 

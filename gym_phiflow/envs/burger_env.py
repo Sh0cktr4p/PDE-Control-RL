@@ -62,7 +62,6 @@ class BurgerEnv(gym.Env):
 		self.action_space = util.get_action_space(act_type, act_dim)
 		self.observation_space = util.get_observation_space(act_params.shape, goal_type, len(self.shape), use_time)
 		self.vis_extractor = lambda s: np.squeeze(np.real(s.velocity), axis=0)
-		print(self.observation_space)
 		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.shape, synchronized)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim, 
 			self.vis_extractor, self.get_random_state,
@@ -82,14 +81,11 @@ class BurgerEnv(gym.Env):
 		self.init_state = self.cont_state.copied_with()
 		self.goal_obs = self.goal_gen(self.init_state.copied_with())
 		self.step_idx = 0
-		print(self.goal_obs.shape)
-		print(self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx).shape)
-
+		
 		return self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx)
 
 	def step(self, action):
 		self.step_idx += 1
-
 		v_old = self.vis_extractor(self.cont_state)
 
 		forces = self.force_gen(action)
