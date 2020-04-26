@@ -119,7 +119,7 @@ class NavierEnv(gym.Env):
 
 		self.vis_extractor = get_vis_extractor(all_visible)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
-		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
+		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor, epis_len)
 		self.cont_state = None	# Controlled state
 		self.pass_state = None	# Passive state
 		self.init_state = None	# Initial state
@@ -152,8 +152,8 @@ class NavierEnv(gym.Env):
 		mse_new = np.sum((self.goal_obs - new_obs) ** 2)
 
 		obs = self.combine_to_obs(self.cont_state, self.goal_obs)
-		reward = self.rew_gen(mse_old, mse_new, forces)
 		done = self.step_idx == self.epis_len
+		reward = self.rew_gen(mse_old, mse_new, forces, done)
 
 		if done:
 			self.epis_idx += 1

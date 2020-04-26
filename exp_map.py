@@ -23,4 +23,6 @@ exp_map = {
 	'104': 'cont_complete_constant',
 	'105': 'cont_complete_constant_smoothed',
 	'106': 'cont_complete_constant_pow',
+	'107': 'cont_complete_constant_rel',
+	'108': 'cont_complete_constant_fin',
 }

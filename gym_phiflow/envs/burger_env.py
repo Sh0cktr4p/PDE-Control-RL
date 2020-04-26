@@ -67,7 +67,7 @@ class BurgerEnv(gym.Env):
 			self.vis_extractor, self.get_random_state,
 			act_type, goal_type, act_params.shape, act_dim, epis_len)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
-		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor)
+		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor, self.epis_len)
 		self.cont_state = None
 		self.pass_state = None
 		self.init_state = None
@@ -99,8 +99,8 @@ class BurgerEnv(gym.Env):
 		mse_new = np.sum((self.goal_obs - v_new) ** 2)
 
 		obs = self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx)
-		reward = self.rew_gen(mse_old, mse_new, forces)
 		done = self.step_idx == self.epis_len
+		reward = self.rew_gen(mse_old, mse_new, forces, done)
 
 		if done:
 			self.epis_idx += 1

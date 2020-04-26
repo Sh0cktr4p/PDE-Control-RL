@@ -101,6 +101,16 @@ register(
 )
 
 register(
+    id='burger-v107',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteConstantRel'
+)
+
+register(
+    id='burger-v108',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteConstantFin'
+)
+
+register(
     id='navier-v00',
     entry_point='gym_phiflow.envs:NavierEnvTwo'
 )

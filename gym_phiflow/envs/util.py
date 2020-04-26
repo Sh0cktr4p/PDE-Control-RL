@@ -23,6 +23,7 @@ class RewardType(Enum):
 	ABSOLUTE = 0			# Consider only absolute deviation from goal field
 	RELATIVE = 1			# Consider the change in deviation from goal field
 	ABS_FORC = 2			# Consider absolute deviation from goal field and the amount of forces created
+	FIN_APPR = 3			# Consider forces at every timestep but the approximation only in the end
 
 
 # Assembles forces array
@@ -226,13 +227,15 @@ def get_obs_gen(goal_type, use_time, epis_len):
 # force_factor:	value to further control the significance of forces amount for reward values
 #
 # returns: 		lambda reward function
-def get_rew_gen(rew_type, force_factor):
+def get_rew_gen(rew_type, force_factor, epis_len):
 	if rew_type == RewardType.ABSOLUTE:
-		return lambda o, n, f: -n
+		return lambda o, n, f, e: -n
 	elif rew_type == RewardType.RELATIVE:
-		return lambda o, n, f: o - n
+		return lambda o, n, f, e: o - n
 	elif rew_type == RewardType.ABS_FORC:
-		return lambda o, n, f: -(n + np.sum(f ** 2) * force_factor)
+		return lambda o, n, f, e: -(n + np.sum(f ** 2) * force_factor)
+	elif rew_type == RewardType.FIN_APPR:
+		return lambda o, n, f, e: -(np.sum(f ** 2) * force_factor + (epis_len * n if e else 0))
 	else:
 		raise NotImplementedError()
 
