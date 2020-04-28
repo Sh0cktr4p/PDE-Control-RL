@@ -16,9 +16,9 @@ class BurgerEnv(gym.Env):
 		ndim = len(self.shape)
 
 		if ndim == 1:
-			fields = [np.real(self.cont_state.velocity).reshape(-1),
-					np.real(self.pass_state.velocity).reshape(-1),
-					np.real(self.init_state.velocity).reshape(-1),
+			fields = [np.real(self.cont_state.velocity.data).reshape(-1),
+					np.real(self.pass_state.velocity.data).reshape(-1),
+					np.real(self.init_state.velocity.data).reshape(-1),
 					self.goal_obs.reshape(-1)]
 
 			labels = ['Controlled Simulation',
@@ -26,8 +26,8 @@ class BurgerEnv(gym.Env):
 					'Initial Density Field',
 					'Goal Density Field']
 		elif ndim == 2:
-			fields = [self.cont_state.velocity,
-					self.init_state.velocity,
+			fields = [self.cont_state.velocity.data,
+					self.init_state.velocity.data,
 					self.goal_obs.reshape([1] + list(self.goal_obs.shape))]
 			labels = ['Controlled Simulation',
 					'Initial Density Field',
@@ -38,10 +38,11 @@ class BurgerEnv(gym.Env):
 		return fields, labels
 
 	def get_random_state(self):
-		return phi.flow.Burger(phi.flow.Domain(self.shape), phi.flow.math.randn(levels=[0,0,self.vel_scale]), viscosity=0.2)
+		domain = phi.flow.Domain(self.shape)
+		return phi.flow.BurgersVelocity(domain=domain, velocity=phi.flow.Noise(channels=domain.rank) * 2, viscosity=0.2)
 
 	def step_sim(self, state, forces):
-		controlled_state = state.copied_with(velocity=state.velocity + forces.reshape(state.velocity.shape) * self.delta_time)
+		controlled_state = state.copied_with(velocity=state.velocity.data + forces.reshape(state.velocity.data.shape) * self.delta_time)
 		return self.physics.step(controlled_state, self.delta_time)
 
 	def __init__(self, epis_len=32, dt=0.5, vel_scale=1.0, use_time=False,
@@ -58,11 +59,11 @@ class BurgerEnv(gym.Env):
 		self.vel_scale = vel_scale
 		self.exp_name = name
 		self.shape = act_points.shape
-		self.physics = phi.flow.BurgerPhysics()
+		self.physics = phi.flow.Burgers()
 		self.action_space = util.get_action_space(act_type, act_dim)
 		self.observation_space = util.get_observation_space(act_params.shape, goal_type, len(self.shape), use_time)
-		self.vis_extractor = lambda s: np.squeeze(np.real(s.velocity), axis=0)
-		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.shape, synchronized)
+		self.vis_extractor = lambda s: np.squeeze(np.real(s.velocity.data), axis=0)
+		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.data.shape, synchronized)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim, 
 			self.vis_extractor, self.get_random_state,
 			act_type, goal_type, act_params.shape, act_dim, epis_len)
@@ -85,13 +86,16 @@ class BurgerEnv(gym.Env):
 		return self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx)
 
 	def step(self, action):
+		tac = time.time()
 		self.step_idx += 1
 		v_old = self.vis_extractor(self.cont_state)
 
 		forces = self.force_gen(action)
 
+		tic = time.time()
 		self.cont_state = self.step_sim(self.cont_state, forces)
 		self.pass_state = self.physics.step(self.pass_state, self.delta_time)
+		toc = time.time()
 
 		v_new = self.vis_extractor(self.cont_state)
 
@@ -104,6 +108,9 @@ class BurgerEnv(gym.Env):
 
 		if done:
 			self.epis_idx += 1
+
+		tec = time.time()
+		#print(tec - tac - (toc - tic))
 
 		return obs, reward, done, {}
 
