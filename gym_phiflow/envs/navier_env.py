@@ -1,6 +1,7 @@
 from gym_phiflow.envs import util, visualization, shape_field
-import phi.flow
+import phi.flow as phiflow
 import gym
+import phi.tf.tf_cuda_pressuresolver
 import numpy as np
 import time
 
@@ -62,10 +63,10 @@ class NavierEnv(gym.Env):
 		return fields, labels
 
 	def get_state_with(self, value):
-		return phi.flow.Fluid(phi.flow.Domain(self.den_shape, boundaries=phi.flow.CLOSED), density=value, buoyancy_factor=0.0)
+		return phiflow.Fluid(phiflow.Domain(self.den_shape, boundaries=phiflow.CLOSED), density=value, buoyancy_factor=0.0)
 
 	def get_random_state(self):
-		return phi.flow.Fluid(phi.flow.Domain(self.den_shape, boundaries=phi.flow.CLOSED), density=phi.flow.Noise(), buoyancy_factor=0.0)
+		return phiflow.Fluid(phiflow.Domain(self.den_shape, boundaries=phiflow.CLOSED), density=phiflow.Noise(), buoyancy_factor=0.0)
 
 	def get_init_field_gen(self, init_field_gen):
 		if init_field_gen:
@@ -79,7 +80,7 @@ class NavierEnv(gym.Env):
 		return self.obs_gen(reshaped_state_obs, reshaped_goal_obs, self.step_idx)
 
 	def step_sim(self, state, forces):
-		staggered_forces = phi.flow.field.StaggeredGrid(forces.reshape(state.velocity.staggered_tensor().shape))
+		staggered_forces = phiflow.field.StaggeredGrid(forces.reshape(state.velocity.staggered_tensor().shape))
 		controlled_state = state.copied_with(velocity=state.velocity + staggered_forces * self.delta_time)
 		return self.physics.step(controlled_state, self.delta_time)
 
@@ -98,7 +99,7 @@ class NavierEnv(gym.Env):
 		self.delta_time = dt
 		self.den_scale = den_scale
 		self.exp_name = name
-		self.physics = phi.flow.IncompressibleFlow(make_input_divfree=True, make_output_divfree=True)
+		self.physics = phiflow.IncompressibleFlow()
 
 		# Density field is one smaller in every dimension than the velocity field
 		self.den_shape = tuple(d-1 for d in act_points.shape)
@@ -146,6 +147,7 @@ class NavierEnv(gym.Env):
 		return self.combine_to_obs(self.cont_state, self.goal_obs)
 
 	def step(self, action):
+		tic = time.time()
 		self.step_idx += 1
 		
 		old_obs = np.squeeze(self.cont_state.density.data, axis=0)
@@ -153,9 +155,7 @@ class NavierEnv(gym.Env):
 		forces = self.force_gen(action)
 
 		self.cont_state = self.step_sim(self.cont_state, forces)
-		tic = time.time()
 		self.pass_state = self.physics.step(self.pass_state, self.delta_time)
-		toc = time.time()
 
 		new_obs = np.squeeze(self.cont_state.density.data, axis=0)
 
@@ -173,6 +173,7 @@ class NavierEnv(gym.Env):
 		if done:
 			self.epis_idx += 1
 
+		toc = time.time()
 		#print(toc - tic)
 
 		return obs, reward, done, {}

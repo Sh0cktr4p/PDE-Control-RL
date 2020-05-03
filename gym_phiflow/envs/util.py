@@ -1,7 +1,6 @@
 import gym
 from enum import Enum
 import numpy as np
-import phi.flow
 
 
 class ActionType(Enum):

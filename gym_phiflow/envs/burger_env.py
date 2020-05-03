@@ -1,5 +1,5 @@
 from gym_phiflow.envs import util, visualization
-import phi.flow
+import phi.tf.flow as phiflow
 import numpy as np
 import gym
 import time
@@ -38,8 +38,8 @@ class BurgerEnv(gym.Env):
 		return fields, labels
 
 	def get_random_state(self):
-		domain = phi.flow.Domain(self.shape)
-		return phi.flow.BurgersVelocity(domain=domain, velocity=phi.flow.Noise(channels=domain.rank) * 2, viscosity=0.2)
+		domain = phiflow.Domain(self.shape)
+		return phiflow.BurgersVelocity(domain=domain, velocity=phiflow.Noise(channels=domain.rank) * 2, viscosity=0.2)
 
 	def step_sim(self, state, forces):
 		controlled_state = state.copied_with(velocity=state.velocity.data + forces.reshape(state.velocity.data.shape) * self.delta_time)
@@ -59,7 +59,7 @@ class BurgerEnv(gym.Env):
 		self.vel_scale = vel_scale
 		self.exp_name = name
 		self.shape = act_points.shape
-		self.physics = phi.flow.Burgers()
+		self.physics = phiflow.Burgers()
 		self.action_space = util.get_action_space(act_type, act_dim)
 		self.observation_space = util.get_observation_space(act_params.shape, goal_type, len(self.shape), use_time)
 		self.vis_extractor = lambda s: np.squeeze(np.real(s.velocity.data), axis=0)
@@ -111,6 +111,7 @@ class BurgerEnv(gym.Env):
 
 		tec = time.time()
 		#print(tec - tac - (toc - tic))
+		#print(tec - tac)
 
 		return obs, reward, done, {}
 
