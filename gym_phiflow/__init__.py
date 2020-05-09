@@ -129,3 +129,13 @@ register(
     id='navier-v16',
     entry_point='gym_phiflow.envs:NavierEnvContComplete2DShapesObs'
 )
+
+register(
+    id='navier-v300',
+    entry_point='gym_phiflow.envs:NavierEnvContCompleteConstant2DShapesObs'
+)
+
+register(
+    id='navier-v301',
+    entry_point='gym_phiflow.envs:NavierEnvContCompleteConstant2DShapesObsFin'
+)

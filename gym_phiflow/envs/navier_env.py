@@ -182,7 +182,7 @@ class NavierEnv(gym.Env):
 		fields, labels = self.get_fields_and_labels()
 
 		ndim = len(self.den_shape)
-		max_value = 1
+		max_value = 0.5
 		signed = False
 
 		if mode == 'l':

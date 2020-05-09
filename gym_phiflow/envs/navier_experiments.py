@@ -23,8 +23,8 @@ class NavierEnvContComplete2DShapes(NavierEnv):
 		super().__init__(name='v14', act_type=util.ActionType.CONTINUOUS,
 			act_points=block1089, goal_type=util.GoalType.PREDEFINED,
 			rew_type=util.RewardType.ABSOLUTE, synchronized=True,
-			init_field_gen=lambda: shape_field.get_random_field((16, 16)).reshape(1, 16, 16, 1), 
-			goal_field_gen=lambda: shape_field.get_random_field((16, 16)).reshape(1, 16, 16, 1))
+			init_field_gen=lambda: shape_field.get_random_sdf_field((16, 16)).reshape(1, 16, 16, 1), 
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((16, 16)).reshape(1, 16, 16, 1))
 
 class NavierEnvContComplete2DShapesObs(NavierEnv):
 	def __init__(self):
@@ -33,4 +33,21 @@ class NavierEnvContComplete2DShapesObs(NavierEnv):
 			rew_type=util.RewardType.ABSOLUTE, synchronized=True,
 			init_field_gen=lambda: shape_field.get_random_sdf_field((15,15)).reshape(1,15,15,1),
 			goal_field_gen=lambda: shape_field.get_random_sdf_field((15,15)).reshape(1,15,15,1),
-			all_visible=True, sdf_rew=True)
+			all_visible=True)
+
+class NavierEnvContCompleteConstant2DShapesObs(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v300', act_type=util.ActionType.CONTINUOUS,
+			act_points=block256, goal_type=util.GoalType.CONSTANT_FORCE,
+			rew_type=util.RewardType.ABSOLUTE, synchronized=True,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
+			all_visible=True)
+
+class NavierEnvContCompleteConstant2DShapesObsFin(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v301', act_type=util.ActionType.CONTINUOUS,
+			act_points=block256, goal_type=util.GoalType.CONSTANT_FORCE,
+			rew_type=util.RewardType.FIN_NOFC, synchronized=True,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
+			all_visible=True)
+

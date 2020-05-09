@@ -23,6 +23,7 @@ class RewardType(Enum):
 	RELATIVE = 1			# Consider the change in deviation from goal field
 	ABS_FORC = 2			# Consider absolute deviation from goal field and the amount of forces created
 	FIN_APPR = 3			# Consider forces at every timestep but the approximation only in the end
+	FIN_NOFC = 4
 
 
 # Assembles forces array
@@ -148,7 +149,7 @@ def get_act_gen(act_type, act_dim, enf_disc=False):
 		if enf_disc:
 			return lambda: np.random.randint(low=-1, high=2, size=act_dim)
 		else:
-			return lambda: np.repeat(np.random.normal(0, 0.1), act_dim)
+			return lambda: np.repeat(np.random.normal(0, 0.25), act_dim)
 	elif act_type == ActionType.UNMODIFIED:
 		return lambda: np.zeros(shape=(act_dim,))
 	elif act_type == ActionType.DISCRETE_2:
@@ -235,6 +236,8 @@ def get_rew_gen(rew_type, force_factor, epis_len):
 		return lambda o, n, f, e: -(n + np.sum(f ** 2) * force_factor)
 	elif rew_type == RewardType.FIN_APPR:
 		return lambda o, n, f, e: -(np.sum(f ** 2) * force_factor + (epis_len * n if e else 0))
+	elif rew_type == RewardType.FIN_NOFC:
+		return lambda o, n, f, e: -epis_len * n if e else 0
 	else:
 		raise NotImplementedError()
 

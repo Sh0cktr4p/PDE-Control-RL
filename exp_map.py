@@ -25,4 +25,6 @@ exp_map = {
 	'106': 'cont_complete_constant_pow',
 	'107': 'cont_complete_constant_rel',
 	'108': 'cont_complete_constant_fin',
+	'300': 'cont_complete_constant_2D_shapes_obs',
+	'301': 'cont_complete_constant_2D_shapes_obs_fin',
 }
