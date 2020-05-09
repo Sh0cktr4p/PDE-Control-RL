@@ -25,4 +25,11 @@ exp_map = {
 	'106': 'cont_complete_constant_pow',
 	'107': 'cont_complete_constant_rel',
 	'108': 'cont_complete_constant_fin',
+	'109': 'cont_complete_constant_fin_l1',
+	'110': 'cont_complete_constant_pow_l1',
+	'200': 'two_reachable_fin',
+	'201': 'three_reachable_fin',
+	'202': 'cont_reachable_fin',
+	'203': 'four_three_reachable_fin',
+	'204': 'four_cont_reachable_fin',
 }

@@ -111,6 +111,41 @@ register(
 )
 
 register(
+    id='burger-v109',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteConstantFinL1'
+)
+
+register(
+    id='burger-v110',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteConstantPowL1'
+)
+
+register(
+    id='burger-v200',
+    entry_point='gym_phiflow.envs:BurgerEnvTwoReachableFin'
+)
+
+register(
+    id='burger-v201',
+    entry_point='gym_phiflow.envs:BurgerEnvThreeReachableFin'
+)
+
+register(
+    id='burger-v202',
+    entry_point='gym_phiflow.envs:BurgerEnvContReachableFin'
+)
+
+register(
+    id='burger-v203',
+    entry_point='gym_phiflow.envs:BurgerEnvFourThreeReachableFin'
+)
+
+register(
+    id='burger-v204',
+    entry_point='gym_phiflow.envs:BurgerEnvFourContReachableFin'
+)
+
+register(
     id='navier-v00',
     entry_point='gym_phiflow.envs:NavierEnvTwo'
 )

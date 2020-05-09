@@ -9,6 +9,7 @@ def test_policy(sim_name='burger', key='00', itr='last', label=''):
 	path = 'output/%s_%s' % (sim_name, exp_map[key] + label)
 	_, get_action = load_policy_and_env(path, itr)
 	env = gym.make(name)
-	run_policy(env, get_action, num_episodes=10)
+	run_policy(env, get_action, num_episodes=100)
 
-test_policy('navier','16', label='')
+#test_policy('burger','104', label='efn')
+test_policy('burger','109', label='loong')

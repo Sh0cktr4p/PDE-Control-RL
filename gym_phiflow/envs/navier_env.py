@@ -2,6 +2,7 @@ from gym_phiflow.envs import util, visualization, shape_field
 import phi.flow
 import gym
 import numpy as np
+import time
 
 
 default_act_points = util.act_points((16,), 0)
@@ -122,7 +123,7 @@ class NavierEnv(gym.Env):
 
 		self.vis_extractor = get_vis_extractor(all_visible)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
-		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor, epis_len)
+		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor, epis_len, False)
 		self.cont_state = None	# Controlled state
 		self.pass_state = None	# Passive state
 		self.init_state = None	# Initial state
@@ -145,7 +146,7 @@ class NavierEnv(gym.Env):
 		return self.combine_to_obs(self.cont_state, self.goal_obs)
 
 	def step(self, action):
-		print(np.sum(self.cont_state.density))
+		tic = time.time()
 		self.step_idx += 1
 		
 		old_obs = np.squeeze(self.cont_state.density, axis=0)
@@ -158,18 +159,21 @@ class NavierEnv(gym.Env):
 		new_obs = np.squeeze(self.cont_state.density, axis=0)
 
 		if self.sdf_rew:
-			mse_old = np.sum(old_obs * self.sdf ** 2)
-			mse_new = np.sum(new_obs * self.sdf ** 2)
+			err_old = old_obs * self.sdf
+			err_new = new_obs * self.sdf
 		else:
-			mse_old = np.sum((self.goal_obs - old_obs) ** 2)
-			mse_new = np.sum((self.goal_obs - new_obs) ** 2)
+			err_old = self.goal_obs - old_obs
+			err_new = self.goal_obs - new_obs
 
 		obs = self.combine_to_obs(self.cont_state, self.goal_obs)
 		done = self.step_idx == self.epis_len
-		reward = self.rew_gen(mse_old, mse_new, forces, done)
+		reward = self.rew_gen(err_old, err_new, forces, done)
 
 		if done:
 			self.epis_idx += 1
+
+		toc = time.time()
+		#print(toc - tic)
 
 		return obs, reward, done, {}
 

@@ -9,6 +9,9 @@ two16 = util.act_points(size=(16,), indices=[7,8])
 three16 = util.act_points(size=(16,), indices=[7,8,9])
 four16 = util.act_points(size=(16,), indices=[6,7,8,9])
 
+one32 = util.act_points(size=(32,), indices=[16])
+four32 = util.act_points(size=(32,), indices=[14, 15, 16, 17])
+
 eight16 = np.array([False, False, False, False, True, True, True, True,
 					True, True, True, True, False, False, False, False])
 
@@ -46,7 +49,7 @@ class BurgerEnvThreeRandom(BurgerEnv):
 class BurgerEnvThreeReachable(BurgerEnv):
 	def __init__(self):
 		super().__init__(name='v05', act_type=util.ActionType.DISCRETE_3,
-			goal_type=util.GoalType.REACHABLE)
+			act_points=one32, goal_type=util.GoalType.REACHABLE)
 
 class BurgerEnvContCompleteRandom(BurgerEnv):
 	def __init__(self):
@@ -137,4 +140,45 @@ class BurgerEnvContCompleteConstantFin(BurgerEnv):
 	def __init__(self):
 		super().__init__(name='v108', act_type=util.ActionType.CONTINUOUS,
 			act_points=complete32, goal_type=util.GoalType.CONSTANT_FORCE,
+			rew_type=util.RewardType.FIN_APPR)
+
+class BurgerEnvContCompleteConstantFinL1(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v109', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete32, goal_type=util.GoalType.CONSTANT_FORCE,
+			rew_type=util.RewardType.FIN_APPR, use_l1_loss=True)
+
+class BurgerEnvContCompleteConstantPowL1(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v110', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete32, goal_type=util.GoalType.CONSTANT_FORCE,
+			rew_type=util.RewardType.ABSOLUTE, use_l1_loss=True)
+
+class BurgerEnvTwoReachableFin(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v200', goal_type=util.GoalType.REACHABLE,
+			rew_type=util.RewardType.FIN_APPR)
+
+class BurgerEnvThreeReachableFin(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v201', act_type=util.ActionType.DISCRETE_3,
+			act_points=one32, goal_type=util.GoalType.REACHABLE, 
+			rew_type=util.RewardType.FIN_NOFC)
+
+class BurgerEnvContReachableFin(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v202', act_type=util.ActionType.CONTINUOUS,
+			act_points=one32, goal_type=util.GoalType.REACHABLE, 
+			rew_type=util.RewardType.FIN_APPR)
+
+class BurgerEnvFourThreeReachableFin(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v203', act_type=util.ActionType.DISCRETE_3,
+			act_points=four32, goal_type=util.GoalType.REACHABLE, 
+			rew_type=util.RewardType.FIN_NOFC)
+
+class BurgerEnvFourContReachableFin(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v204', act_type=util.ActionType.CONTINUOUS,
+			act_points=four32, goal_type=util.GoalType.REACHABLE, 
 			rew_type=util.RewardType.FIN_APPR)
