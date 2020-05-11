@@ -27,4 +27,7 @@ exp_map = {
 	'108': 'cont_complete_constant_fin',
 	'300': 'cont_complete_constant_2D_shapes_obs',
 	'301': 'cont_complete_constant_2D_shapes_obs_fin',
+	'302': 'cont_complete_2D_shapes_obs_sdf',
+	'303': 'cont_complete_2D_shapes_obs_fin_sdf',
+	'304': 'everything_2D_shapes_obs_fin_sdf',
 }

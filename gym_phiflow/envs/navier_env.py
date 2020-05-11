@@ -1,7 +1,7 @@
 from gym_phiflow.envs import util, visualization, shape_field
 import phi.flow as phiflow
 import gym
-import phi.tf.tf_cuda_pressuresolver
+#import phi.tf.tf_cuda_pressuresolver
 import numpy as np
 import time
 
@@ -26,7 +26,8 @@ def get_vis_extractor(all_visible):
 	if all_visible:
 		return lambda s: stack_fields(s)
 	else:
-		return lambda s: np.squeeze(s.density.data, axis=0)
+		return lambda s: np.squeeze(pad_to_staggered_size(s.density.data), axis=0)
+		#return lambda s: np.squeeze(s.density.data, axis=0)
 
 
 def pad_to_shape(field, shape):
@@ -104,7 +105,7 @@ class NavierEnv(gym.Env):
 		# Density field is one smaller in every dimension than the velocity field
 		self.den_shape = tuple(d-1 for d in act_points.shape)
 		# If both fields are visible, pad the density field and stack it onto the staggered velocity field
-		vis_shape = util.increase_channels(act_params.shape, 1) if all_visible else with_channel(self.den_shape)
+		vis_shape = util.increase_channels(act_params.shape, 1) if all_visible else with_channel(act_points.shape)
 		# Goal field has the shape of the density field with one channel dimension
 		goal_vis_shape = with_channel(self.den_shape)
 		# Forces array has the same shape as the velocity field
@@ -112,6 +113,7 @@ class NavierEnv(gym.Env):
 
 		self.action_space = util.get_action_space(act_type, act_dim)
 		self.observation_space = util.get_observation_space(vis_shape, goal_type, 1, use_time)
+
 		self.force_gen = util.get_force_gen(act_type, act_params, forces_shape, synchronized)
 		
 		self.shape_mode = goal_field_gen is not None

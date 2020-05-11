@@ -80,6 +80,85 @@ class CNN(torch.nn.Module):
 		return self.seq(x.permute(0, 3, 1, 2))
 
 
+class UNT(torch.nn.Module):
+
+	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
+		super().__init__()
+
+		fcs = [8, 16, 32]
+		ics = 4
+		ocs = 2
+
+		ks = 3
+		st = 1
+		pd = 1
+
+		print(obs_shape)
+		print(sizes)
+
+		self.blocks = torch.nn.ModuleList()
+
+		# [C, C]
+		self.blocks.append(torch.nn.Sequential(*[
+			torch.nn.Conv2d(ics, fcs[0], ks, st, pd), activation(),
+			torch.nn.Conv2d(fcs[0], fcs[0], ks, st, pd), activation()]))
+
+		# [P, C, C]
+		for i in range(len(fcs) - 2):
+			self.blocks.append(torch.nn.Sequential(*[
+				torch.nn.MaxPool2d(2),
+				torch.nn.Conv2d(fcs[i], fcs[i+1], ks, st, pd), activation(),
+				torch.nn.Conv2d(fcs[i+1], fcs[i+1], ks, st, pd), activation()]))
+		
+		# [P, C, C, U]
+		self.blocks.append(torch.nn.Sequential(*[
+			torch.nn.MaxPool2d(2),
+			torch.nn.Conv2d(fcs[-2], fcs[-1], ks, st, pd), activation(),
+			torch.nn.Conv2d(fcs[-1], fcs[-1], ks, st, pd), activation(),
+			torch.nn.ConvTranspose2d(fcs[-1], fcs[-2], 2, 2)]))
+
+		# [C, C, U]
+		for i in range(len(fcs) - 2):
+			self.blocks.append(torch.nn.Sequential(*[
+				torch.nn.Conv2d(fcs[-(i+1)], fcs[-(i+2)], ks, st, pd), activation(),
+				torch.nn.Conv2d(fcs[-(i+2)], fcs[-(i+2)], ks, st, pd), activation(),
+				torch.nn.ConvTranspose2d(fcs[-(i+2)], fcs[-(i+3)], 2, 2)]))
+
+		# [C, C, C]
+		mods = [
+			torch.nn.Conv2d(fcs[1], fcs[0], ks, st, pd), activation(),
+			torch.nn.Conv2d(fcs[0], fcs[0], ks, st, pd), activation(),
+			torch.nn.Conv2d(fcs[0], ocs, ks, st, pd), 
+			torch.nn.Flatten(), output_activation()]
+		
+		if sizes[-1] == 1:
+			print('Additional layer for outputting only one value')
+			mods.append(torch.nn.Linear(obs_shape[0] * obs_shape[1] * ocs, 1))
+
+		self.blocks.append(torch.nn.Sequential(*mods))
+
+		print('Using fully convolutional U-Net model')
+		print('Number of blocks: %d' % len(self.blocks))
+
+	def forward(self, x):
+		block_outputs = []
+
+		x = x.permute(0, 3, 1, 2)
+
+		for i in range(len(self.blocks) // 2):
+			x = self.blocks[i](x)
+			block_outputs.append(x)
+		
+		x = self.blocks[len(self.blocks) // 2](x)
+
+		for i in range(len(self.blocks) // 2):
+			block_idx = len(self.blocks) // 2 + i + 1
+			x = torch.cat((x, block_outputs[-(i+1)]), 1)
+			x = self.blocks[block_idx](x)
+
+		return x
+
+
 class FCN(torch.nn.Module):
 
 	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):

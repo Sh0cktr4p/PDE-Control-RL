@@ -11,4 +11,4 @@ def test_policy(sim_name='burger', key='00', itr='last', label=''):
 	env = gym.make(name)
 	run_policy(env, get_action, num_episodes=10)
 
-test_policy('navier','16', label='vsn')
+test_policy('navier','304', label='del')
