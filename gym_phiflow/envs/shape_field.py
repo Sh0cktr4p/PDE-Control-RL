@@ -38,6 +38,9 @@ def sdf(f, o, d):
 	return np.minimum(-d, 0)
 
 
+shape_index = 0
+
+
 class Shape:
 	def __init__(self, size):
 		self.size = size
@@ -47,7 +50,10 @@ class Shape:
 
 	def get_sdf_field(self, field_shape):
 		ranges = [field_shape[i] - self.size[i] + 1 for i in range(len(field_shape))]
-		off_vals = np.array([np.random.randint(r) for r in ranges])
+		#off_vals = np.array([np.random.randint(r) for r in ranges])
+		global shape_index
+		off_val_options = [[2, 2], [8, 7]]
+		off_vals = np.array(off_val_options[shape_index])
 		sdf_field = self.sdf(field_shape, off_vals)
 		return sdf_field
 
@@ -83,7 +89,11 @@ class Diamond(Shape):
 def get_random_sdf_field(field_shape):
 	shapes = [Rect(3, 3), Rect(3, 4), Rect(4, 3), Rect(5, 2), Rect(2, 5), Rect(6, 2), Rect(2, 6),
 			Diamond(4), Diamond(5), Diamond(6)]
-	return shapes[np.random.randint(len(shapes))].get_sdf_field(field_shape)
+	global shape_index
+	#shape_index = (shape_index + 1) % 2
+	shapes = [Diamond(5)]
+	return shapes[shape_index].get_sdf_field(field_shape)
+	#return shapes[np.random.randint(len(shapes))].get_sdf_field(field_shape)
 
 
 def to_density_field(sdf_field, total_density):

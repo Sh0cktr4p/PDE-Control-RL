@@ -133,17 +133,18 @@ class FileRenderer(FileViz):
 		self.image_dir = self.scene.subpath('images', create=True)
 
 	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
+		
 		fig, _ = render_fields(fields, labels, max_value, signed)
 
-		path = os.path.join(self.image_dir, '%s%04d_%04d.png' % (plot_name, ep_idx, step_idx))
+		path = os.path.join(self.image_dir, '%s%04d_%d.png' % (plot_name, ep_idx, step_idx))
 		plt.savefig(path)
 		plt.close()
 
 		if path:
 			print('Frame written to %s' % path)
 		
-		if step_idx == ep_len - 1:
-			combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len, remove_frames)
+		#if step_idx == ep_len - 1:
+		#	combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len, remove_frames)
 
 
 class LivePlotter(LiveViz):
@@ -178,7 +179,7 @@ class FilePlotter(FileViz):
 	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
 		fig, _ = plot_fields(fields, labels, max_value, signed)
 
-		path = os.path.join(self.image_dir, '%s%04d_%04d.png' % (plot_name, ep_idx, step_idx))
+		path = os.path.join(self.image_dir, '%s%04d_%d.png' % (plot_name, ep_idx, step_idx))
 		plt.savefig(path)
 		plt.close()
 

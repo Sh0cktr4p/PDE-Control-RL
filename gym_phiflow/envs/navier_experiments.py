@@ -78,3 +78,29 @@ class NavierEnvEverything2DShapesObsFinSDF(NavierEnv):
 			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
 			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
 			all_visible=True, sdf_rew=True)
+
+class NavierEnvEverything2DShapesObsSDF(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v305', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
+			rew_type=util.RewardType.ABSOLUTE,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
+			all_visible=True, sdf_rew=True)
+
+class NavierEnvEverything2DShapesObs(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v306', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
+			rew_type=util.RewardType.ABSOLUTE,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
+			all_visible=True)
+
+class NavierEnvEverything2DShapes(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v307', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
+			rew_type=util.RewardType.ABSOLUTE,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1))

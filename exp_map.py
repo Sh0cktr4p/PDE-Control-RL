@@ -30,4 +30,7 @@ exp_map = {
 	'302': 'cont_complete_2D_shapes_obs_sdf',
 	'303': 'cont_complete_2D_shapes_obs_fin_sdf',
 	'304': 'everything_2D_shapes_obs_fin_sdf',
+	'305': 'everything_2D_shapes_obs_sdf',
+	'306': 'everything_2D_shapes_obs',
+	'307': 'everything_2D_shapes',
 }

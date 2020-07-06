@@ -89,9 +89,9 @@ class UNT(torch.nn.Module):
 		ics = 4
 		ocs = 2
 
-		ks = 3
+		ks = 5
 		st = 1
-		pd = 1
+		pd = 2
 
 		print(obs_shape)
 		print(sizes)
@@ -101,34 +101,52 @@ class UNT(torch.nn.Module):
 		# [C, C]
 		self.blocks.append(torch.nn.Sequential(*[
 			torch.nn.Conv2d(ics, fcs[0], ks, st, pd), activation(),
-			torch.nn.Conv2d(fcs[0], fcs[0], ks, st, pd), activation()]))
+			#torch.nn.BatchNorm2d(fcs[0]),
+			torch.nn.Conv2d(fcs[0], fcs[0], ks, st, pd), activation(),
+			#torch.nn.BatchNorm2d(fcs[0])
+			]))
 
 		# [P, C, C]
 		for i in range(len(fcs) - 2):
 			self.blocks.append(torch.nn.Sequential(*[
 				torch.nn.MaxPool2d(2),
 				torch.nn.Conv2d(fcs[i], fcs[i+1], ks, st, pd), activation(),
-				torch.nn.Conv2d(fcs[i+1], fcs[i+1], ks, st, pd), activation()]))
+				#torch.nn.BatchNorm2d(fcs[i+1]),
+				torch.nn.Conv2d(fcs[i+1], fcs[i+1], ks, st, pd), activation(),
+				#torch.nn.BatchNorm2d(fcs[i+1])
+				]))
 		
 		# [P, C, C, U]
 		self.blocks.append(torch.nn.Sequential(*[
 			torch.nn.MaxPool2d(2),
 			torch.nn.Conv2d(fcs[-2], fcs[-1], ks, st, pd), activation(),
+			#torch.nn.BatchNorm2d(fcs[-1]),
+			torch.nn.Dropout2d(p=0.1),
 			torch.nn.Conv2d(fcs[-1], fcs[-1], ks, st, pd), activation(),
-			torch.nn.ConvTranspose2d(fcs[-1], fcs[-2], 2, 2)]))
+			#torch.nn.BatchNorm2d(fcs[-1]),
+			torch.nn.ConvTranspose2d(fcs[-1], fcs[-2], 2, 2),
+			#torch.nn.BatchNorm2d(fcs[-2])
+			]))
 
 		# [C, C, U]
 		for i in range(len(fcs) - 2):
 			self.blocks.append(torch.nn.Sequential(*[
 				torch.nn.Conv2d(fcs[-(i+1)], fcs[-(i+2)], ks, st, pd), activation(),
+				#torch.nn.BatchNorm2d(fcs[-(i+2)]),
 				torch.nn.Conv2d(fcs[-(i+2)], fcs[-(i+2)], ks, st, pd), activation(),
-				torch.nn.ConvTranspose2d(fcs[-(i+2)], fcs[-(i+3)], 2, 2)]))
+				#torch.nn.BatchNorm2d(fcs[-(i+2)]),
+				torch.nn.ConvTranspose2d(fcs[-(i+2)], fcs[-(i+3)], 2, 2),
+				#torch.nn.BatchNorm2d(fcs[-(i+3)])
+				]))
 
 		# [C, C, C]
 		mods = [
 			torch.nn.Conv2d(fcs[1], fcs[0], ks, st, pd), activation(),
+			#torch.nn.BatchNorm2d(fcs[0]),
 			torch.nn.Conv2d(fcs[0], fcs[0], ks, st, pd), activation(),
+			#torch.nn.BatchNorm2d(fcs[0]),
 			torch.nn.Conv2d(fcs[0], ocs, ks, st, pd), 
+			#torch.nn.BatchNorm2d(ocs),
 			torch.nn.Flatten(), output_activation()]
 		
 		if sizes[-1] == 1:

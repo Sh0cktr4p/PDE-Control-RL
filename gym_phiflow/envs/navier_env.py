@@ -180,7 +180,7 @@ class NavierEnv(gym.Env):
 
 		return obs, reward, done, {}
 
-	def render(self, mode='l'):
+	def render(self, mode='f'):
 		fields, labels = self.get_fields_and_labels()
 
 		ndim = len(self.den_shape)

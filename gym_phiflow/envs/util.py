@@ -149,7 +149,8 @@ def get_act_gen(act_type, act_dim, enf_disc=False):
 		if enf_disc:
 			return lambda: np.random.randint(low=-1, high=2, size=act_dim)
 		else:
-			return lambda: np.repeat(np.random.normal(0, 0.25), act_dim)
+			return lambda: np.array([0.08, 0.05])
+			#return lambda: np.repeat(np.random.normal(0, 0.25), act_dim)
 	elif act_type == ActionType.UNMODIFIED:
 		return lambda: np.zeros(shape=(act_dim,))
 	elif act_type == ActionType.DISCRETE_2:

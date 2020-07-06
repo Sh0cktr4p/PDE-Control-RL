@@ -23,7 +23,7 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 
 	tic = time.time()
 	ppo_pytorch(env_fn, ac_kwargs=ac_kwargs, steps_per_epoch=3200, epochs=epochs, logger_kwargs=logger_kwargs, 
-			pi_lr=2e-4, vf_lr=1e-3, gamma=0.96, save_freq=save_freq, actor_critic=actor_critic.MLPActorCritic)
+			pi_lr=1e-3, vf_lr=1e-3, gamma=0.96, save_freq=save_freq, actor_critic=actor_critic.MLPActorCritic)
 	toc = time.time()
 
 	time_msg = 'Training time: %s' % datetime.timedelta(seconds=toc - tic)
@@ -34,4 +34,4 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 		file.write(time_msg)
 
 
-run_experiment('navier', '304', 50, 25, label='del')
+run_experiment('navier', '306', 500, 20, label='lks')
