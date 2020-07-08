@@ -87,7 +87,7 @@ class NavierEnv(gym.Env):
 
 	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, use_time=False, 
 			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, 
-			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, 
+			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, loss_fn=util.l2_loss,
 			synchronized=False, init_field_gen=None, goal_field_gen=None, all_visible=False, sdf_rew=False):
 		# Multi-dimensional fields have parameters for each of these directions at each point; act_points does not reflect that
 		act_params = util.get_all_act_params(act_points)
@@ -111,6 +111,8 @@ class NavierEnv(gym.Env):
 		# Forces array has the same shape as the velocity field
 		forces_shape = self.get_random_state().velocity.staggered_tensor().shape
 
+		self.action_recorder = util.get_action_recorder(goal_type)
+
 		self.action_space = util.get_action_space(act_type, act_dim)
 		self.observation_space = util.get_observation_space(vis_shape, goal_type, 1, use_time)
 
@@ -122,22 +124,26 @@ class NavierEnv(gym.Env):
 		self.init_gen = self.get_init_field_gen(init_field_gen)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim,
 			lambda s: s.density.data.reshape(goal_vis_shape), self.get_random_state, act_type, goal_type, 
-			goal_vis_shape, act_dim, epis_len, goal_field_gen)
-
+			goal_vis_shape, act_dim, epis_len, self.action_recorder, goal_field_gen)
 		self.vis_extractor = get_vis_extractor(all_visible)
 		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
-		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor, epis_len)
+		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor, epis_len, loss_fn)
 		self.cont_state = None	# Controlled state
 		self.pass_state = None	# Passive state
 		self.init_state = None	# Initial state
+		self.prec_state = None	# Ground truth
 		self.goal_obs = None
 		self.lviz = None
 		self.fviz = None
 
 	def reset(self):
+		if self.action_recorder is not None:
+			self.action_recorder.reset()
+
 		self.init_state = self.init_gen()
 		self.cont_state = self.init_state.copied_with()
 		self.pass_state = self.init_state.copied_with()
+		self.prec_state = self.init_state.copied_with()
 		self.goal_obs = self.goal_gen(self.init_state.copied_with())
 
 		if self.shape_mode:
@@ -145,42 +151,52 @@ class NavierEnv(gym.Env):
 			self.goal_obs = shape_field.to_density_field(self.goal_obs, 10)
 
 		self.step_idx = 0
-		
+
+		if self.force_collector is not None:
+			print('Average forces: %f' % self.force_collector.get_forces())
+
 		return self.combine_to_obs(self.cont_state, self.goal_obs)
 
 	def step(self, action):
-		tic = time.time()
 		self.step_idx += 1
 		
 		old_obs = np.squeeze(self.cont_state.density.data, axis=0)
 
-		forces = self.force_gen(action)
+		forces = self.force_gen(action).copy()
 
 		self.cont_state = self.step_sim(self.cont_state, forces)
+		
+		if self.action_recorder is not None:
+			f_prec = self.force_gen(self.action_recorder.replay()).copy()
+			self.prec_state = self.step_sim(self.prec_state, f_prec)
+
 		self.pass_state = self.physics.step(self.pass_state, self.delta_time)
 
 		new_obs = np.squeeze(self.cont_state.density.data, axis=0)
 
 		if self.sdf_rew:
-			mse_old = np.sum(old_obs * self.sdf ** 2)
-			mse_new = np.sum(new_obs * self.sdf ** 2)
+			err_old = old_obs * self.sdf
+			err_new = new_obs * self.sdf
 		else:
-			mse_old = np.sum((self.goal_obs - old_obs) ** 2)
-			mse_new = np.sum((self.goal_obs - new_obs) ** 2)
+			err_old = self.goal_obs - old_obs
+			err_new = self.goal_obs - new_obs
 
 		obs = self.combine_to_obs(self.cont_state, self.goal_obs)
 		done = self.step_idx == self.epis_len
-		reward = self.rew_gen(mse_old, mse_new, forces, done)
+		reward = self.rew_gen(err_old, err_new, forces, done)
+
+		if self.force_collector is not None:
+			self.force_collector.add_forces(forces)
 
 		if done:
 			self.epis_idx += 1
 
-		toc = time.time()
-		#print(toc - tic)
-
 		return obs, reward, done, {}
 
 	def render(self, mode='f'):
+		if self.force_collector is None:
+			self.force_collector = util.ForceCollector()
+
 		fields, labels = self.get_fields_and_labels()
 
 		ndim = len(self.den_shape)

@@ -1,7 +1,8 @@
 import gym
 from enum import Enum
 import numpy as np
-
+import phi.flow as phiflow
+import phiflow_util
 
 class ActionType(Enum):
 	CONTINUOUS = 0			# Forces can be any floating point value
@@ -121,22 +122,29 @@ def get_observation_space(vis_shape, goal_type, goal_channels, use_time):
 # force_gen: 		output function of a get_force_gen() call, transforms actions to forces array
 # step_fn:			function provided by environment to apply forces and generate new states by a physics object
 # vis_extractor:	function provided by environment extracting the observable part from a given state
+# act_rec:			action recorder, used to retrace the ground truth
 # epis_len:			length of a trajectory
 # state:			initial state for simulation
 # act_preselected:	flag to show if the same action should be applied at all time steps
 #
 # returns:			visible part of a goal state from a precomputed trajectory
-def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, state, act_preselected):
+def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, act_rec, epis_len, state, act_preselected):
 	if act_preselected:
 		action = action_gen()
 		action_gen = lambda: action
 	
 	for _ in range(epis_len):
-		forces = force_gen(action)
+		act = action_gen()
+		act_rec.record(act)
+		forces = force_gen(act)
 		state = step_fn(state, forces)
 
 	return vis_extractor(state)
 
+
+def get_random_action(act_dim):
+	domain = phiflow.Domain((act_dim,), box=phiflow.box[0:1])
+	
 
 # Yields a function for generating random actions mimicking network outputs
 # act_type:			enum value describing the space of possible actions
@@ -149,8 +157,7 @@ def get_act_gen(act_type, act_dim, enf_disc=False):
 		if enf_disc:
 			return lambda: np.random.randint(low=-1, high=2, size=act_dim)
 		else:
-			return lambda: np.array([0.08, 0.05])
-			#return lambda: np.repeat(np.random.normal(0, 0.25), act_dim)
+			return lambda: np.repeat(np.random.normal(0, 0.25), act_dim)
 	elif act_type == ActionType.UNMODIFIED:
 		return lambda: np.zeros(shape=(act_dim,))
 	elif act_type == ActionType.DISCRETE_2:
@@ -171,24 +178,25 @@ def get_act_gen(act_type, act_dim, enf_disc=False):
 # vis_shape:		shape of the observable part of the goal state
 # act_dim:			number of action parameters
 # epis_len:			length of a trajectory
+# act_rec:			action recorder, used to retrace the ground truth
 # goal_field_gen:	custom goal field generation routine, only has effect with corresponding goal type
 #
 # returns:			lambda goal generator function
 def get_goal_gen(force_gen, step_fn, vis_extractor, rand_state_gen, act_type, 
-		goal_type, vis_shape, act_dim, epis_len, goal_field_gen=None):
+		goal_type, vis_shape, act_dim, epis_len, act_rec, goal_field_gen=None):
 	if goal_type == GoalType.ZERO:
 		return lambda s: np.zeros(shape=vis_shape, dtype=np.float32)
 	elif goal_type == GoalType.RANDOM:
 		return lambda s: vis_extractor(rand_state_gen())
 	elif goal_type == GoalType.REACHABLE:
 		action_gen = get_act_gen(act_type, act_dim, enf_disc=True)
-		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, s, False)
+		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, act_rec, epis_len, s, False)
 	elif goal_type == GoalType.PREDEFINED:
 		assert goal_field_gen is not None
 		return lambda s: np.squeeze(goal_field_gen(), axis=0)
 	elif goal_type == GoalType.CONSTANT_FORCE:
 		action_gen = get_act_gen(act_type, act_dim, enf_disc=False)
-		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, epis_len, s, True)
+		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, act_rec, epis_len, s, True)
 	else:
 		raise NotImplementedError()
 
@@ -223,22 +231,30 @@ def get_obs_gen(goal_type, use_time, epis_len):
 		raise NotImplementedError()
 
 
+def l1_loss(field):
+	return np.sum(np.abs(field))
+
+
+def l2_loss(field):
+	return np.sum(field**2)
+
 # Returns reward functions corresponding to specifications
 # rew_type:		enum value distinguishing the types of reward functions
 # force_factor:	value to further control the significance of forces amount for reward values
+# loss_fn:		loss function to use
 #
 # returns: 		lambda reward function
-def get_rew_gen(rew_type, force_factor, epis_len):
+def get_rew_gen(rew_type, force_factor, epis_len, loss_fn):
 	if rew_type == RewardType.ABSOLUTE:
-		return lambda o, n, f, e: -n
+		return lambda o, n, f, e: -loss_fn(n)
 	elif rew_type == RewardType.RELATIVE:
-		return lambda o, n, f, e: o - n
+		return lambda o, n, f, e: loss_fn(o) - loss_fn(n)
 	elif rew_type == RewardType.ABS_FORC:
-		return lambda o, n, f, e: -(n + np.sum(f ** 2) * force_factor)
+		return lambda o, n, f, e: -loss_fn(f) * force_factor - loss_fn(n) 
 	elif rew_type == RewardType.FIN_APPR:
-		return lambda o, n, f, e: -(np.sum(f ** 2) * force_factor + (epis_len * n if e else 0))
+		return lambda o, n, f, e: -loss_fn(f) * force_factor - (epis_len * loss_fn(n) if e else 0)
 	elif rew_type == RewardType.FIN_NOFC:
-		return lambda o, n, f, e: -epis_len * n if e else 0
+		return lambda o, n, f, e: -epis_len * loss_fn(n) if e else 0
 	else:
 		raise NotImplementedError()
 
@@ -255,3 +271,43 @@ def get_all_act_params(points):
 
 def increase_channels(shape, add_channels):
 	return tuple(list(shape[:-1]) + [shape[-1] + add_channels])
+
+
+class ForceCollector:
+	def __init__(self):
+		self.total_forces = 0
+		self.num_steps = 0
+
+	def add_forces(self, forces):
+		self.total_forces += np.sum(np.abs(forces))
+		self.num_steps += 1
+
+	def get_forces(self):
+		return self.total_forces * 32.0 / self.num_steps
+
+
+class ActionRecorder:
+	def __init__(self):
+		self.actions = None
+		self.step_idx = 0
+
+	def reset(self):
+		self.actions = []
+		self.step_idx = 0
+
+	def record(self, action):
+		self.actions.append(action)
+
+	def replay(self):
+		action = self.actions[self.step_idx]
+		self.step_idx += 1
+		return action
+
+
+def get_action_recorder(goal_type):
+	if goal_type == GoalType.ZERO or goal_type == GoalType.RANDOM or goal_type == GoalType.PREDEFINED:
+		return None
+	elif goal_type == GoalType.REACHABLE or goal_type == GoalType.CONSTANT_FORCE:
+		return ActionRecorder()
+	else:
+		raise NotImplementedError()

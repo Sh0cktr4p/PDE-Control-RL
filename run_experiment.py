@@ -13,11 +13,11 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 		label = '_' + label
 	
 	name = 'gym_phiflow:%s-v%s' % (sim_name, key)
-	path = 'output/%s_%s%s' % (sim_name, exp_map[key], label)
+	path = 'output/%s/%s/%s' % (sim_name, exp_map[key], label)
 
 	env_fn = lambda: gym.make(name)
 
-	ac_kwargs = dict(hidden_sizes=[[8, 16],[100]], activation=torch.nn.ReLU, network=actor_critic.UNT)
+	ac_kwargs = dict(hidden_sizes=[8, 16, 100], activation=torch.nn.ReLU, network=actor_critic.UNET)
 
 	logger_kwargs = dict(output_dir=path, exp_name=sim_name)
 
@@ -34,4 +34,4 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 		file.write(time_msg)
 
 
-run_experiment('navier', '306', 500, 20, label='lks')
+run_experiment('burger', '108', 50, 100, label='unet')

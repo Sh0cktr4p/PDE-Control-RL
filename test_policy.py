@@ -6,10 +6,9 @@ def test_policy(sim_name='burger', key='00', itr='last', label=''):
 	if label != '' and label[0] != '_':
 		label = '_' + label
 	name = 'gym_phiflow:%s-v%s' % (sim_name, key)
-	path = 'output/%s_%s' % (sim_name, exp_map[key] + label)
+	path = 'output/%s/%s/%s' % (sim_name, exp_map[key], label)
 	_, get_action = load_policy_and_env(path, itr)
 	env = gym.make(name)
-	run_policy(env, get_action, num_episodes=1)
+	run_policy(env, get_action, num_episodes=10)
 
-test_policy('navier','300', label='vsn')
-test_policy('navier','301', label='vsn')
+test_policy('burger', '108', 0, 'unet')
