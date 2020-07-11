@@ -91,8 +91,11 @@ class UNET(torch.nn.Module):
 		print('Input shape: %s' % str(input_shape))
 		print('Output dim: %s' % str(output_dim))
 
-		input_channels = 2
-		output_channels = 1
+		input_channels = input_shape[-1]
+
+		# Number of output channels is derived from the size of the field and the overall action parameters
+		# Would be zero in the case of the value net => clamp to one
+		output_channels = max(1, output_dim // np.prod(input_shape[:-1]))
 
 		kernel_size = 3
 		stride = 1
@@ -107,10 +110,12 @@ class UNET(torch.nn.Module):
 		maxp = torch.nn.MaxPool1d
 		cvtp = torch.nn.ConvTranspose1d
 
-		if len(input_shape) == 4:
+		if len(input_shape) == 3:
 			conv = torch.nn.Conv2d
 			maxp = torch.nn.MaxPool2d
 			cvtp = torch.nn.ConvTranspose2d
+
+		print(output_channels)
 
 		base_filter_count = 8
 
@@ -150,7 +155,7 @@ class UNET(torch.nn.Module):
 		]
 
 		if output_dim == 1:
-			mods += [torch.nn.Flatten(), torch.nn.Linear(np.prod(input_shape[:-1]), 1)]
+			mods += [torch.nn.Linear(np.prod(input_shape[:-1]), output_dim)]
 
 		self.blocks.append(torch.nn.Sequential(*mods))
 
@@ -201,10 +206,10 @@ class MLPCategoricalActor(core.Actor):
 
 	def __init__(self, obs_shape, act_dim, hidden_sizes, activation, network):
 		super().__init__()
-		self.logits_net = network(obs_shape, act_dim, list(hidden_sizes), activation)
+		self.logits_net = network(obs_shape, act_dim, list(hidden_sizes), activation).to('cuda')
 
 	def _distribution(self, obs):
-		logits = self.logits_net(obs)
+		logits = self.logits_net(obs.to('cuda')).to('cpu')
 		return core.Categorical(logits=logits)
 
 	def _log_prob_from_distribution(self, pi, act):
@@ -217,10 +222,10 @@ class MLPGaussianActor(core.Actor):
 		super().__init__()
 		log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
 		self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
-		self.mu_net = network(obs_shape, act_dim, list(hidden_sizes), activation)
+		self.mu_net = network(obs_shape, act_dim, list(hidden_sizes), activation).to('cuda')
 
 	def _distribution(self, obs):
-		mu = self.mu_net(obs)
+		mu = self.mu_net(obs.to('cuda')).to('cpu')
 		std = torch.exp(self.log_std)
 		return core.Normal(mu, std)
 
@@ -232,10 +237,10 @@ class MLPCritic(torch.nn.Module):
 
 	def __init__(self, obs_shape, hidden_sizes, activation, network):
 		super().__init__()
-		self.v_net = network(obs_shape, 1, list(hidden_sizes), activation)
+		self.v_net = network(obs_shape, 1, list(hidden_sizes), activation).to('cuda')
 
 	def forward(self, obs):
-		return torch.squeeze(self.v_net(obs), -1) # Critical to ensure v has right shape.
+		return torch.squeeze(self.v_net(obs.to('cuda')).to('cpu'), -1) # Critical to ensure v has right shape.
 
 
 

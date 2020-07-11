@@ -2,7 +2,7 @@ import gym
 from enum import Enum
 import numpy as np
 import phi.flow as phiflow
-import phiflow_util
+from gym_phiflow.envs import phiflow_util
 
 class ActionType(Enum):
 	CONTINUOUS = 0			# Forces can be any floating point value
@@ -140,10 +140,6 @@ def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, act_rec, epis_
 		state = step_fn(state, forces)
 
 	return vis_extractor(state)
-
-
-def get_random_action(act_dim):
-	domain = phiflow.Domain((act_dim,), box=phiflow.box[0:1])
 	
 
 # Yields a function for generating random actions mimicking network outputs

@@ -1,9 +1,10 @@
 from gym_phiflow.envs import util, visualization, shape_field
-import phi.flow as phiflow
+import phi.tf.flow as phiflow
 import gym
-#import phi.tf.tf_cuda_pressuresolver
+import phi.tf.tf_cuda_pressuresolver
 import numpy as np
 import time
+import tensorflow as tf
 
 
 default_act_points = util.act_points((16,), 0)
@@ -83,6 +84,9 @@ class NavierEnv(gym.Env):
 	def step_sim(self, state, forces):
 		staggered_forces = phiflow.field.StaggeredGrid(forces.reshape(state.velocity.staggered_tensor().shape))
 		controlled_state = state.copied_with(velocity=state.velocity + staggered_forces * self.delta_time)
+
+		with tf.
+
 		return self.physics.step(controlled_state, self.delta_time)
 
 	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, use_time=False, 
@@ -100,7 +104,8 @@ class NavierEnv(gym.Env):
 		self.delta_time = dt
 		self.den_scale = den_scale
 		self.exp_name = name
-		self.physics = phiflow.IncompressibleFlow()
+		self.physics = phiflow.IncompressibleFlow(pressure_solver=phi.tf.tf_cuda_pressuresolver.CUDASolver())
+		#self.physics = phiflow.IncompressibleFlow()
 
 		# Density field is one smaller in every dimension than the velocity field
 		self.den_shape = tuple(d-1 for d in act_points.shape)
@@ -135,6 +140,7 @@ class NavierEnv(gym.Env):
 		self.goal_obs = None
 		self.lviz = None
 		self.fviz = None
+		self.force_collector = None
 
 	def reset(self):
 		if self.action_recorder is not None:
