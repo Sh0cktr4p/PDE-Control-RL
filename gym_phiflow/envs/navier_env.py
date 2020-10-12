@@ -81,13 +81,18 @@ class NavierEnv(gym.Env):
 		reshaped_goal_obs = pad_to_shape(goal, list(reshaped_state_obs.shape[:-1]) + [1])
 		return self.obs_gen(reshaped_state_obs, reshaped_goal_obs, self.step_idx)
 
+	def tf_physics_step(self, state):
+		in_state = state.copied_with(density=tf.placeholder(dtype=tf.float32, shape=state.density.data.shape), velocity=tf.placeholder(dtype=tf.float32, shape=state.velocity.staggered_tensor().shape))
+		print(in_state.density.data.shape)
+		out_state = self.physics.step(in_state, self.delta_time)
+		return tf.Session().run(out_state, feed_dict={in_state: state})
+
 	def step_sim(self, state, forces):
 		staggered_forces = phiflow.field.StaggeredGrid(forces.reshape(state.velocity.staggered_tensor().shape))
 		controlled_state = state.copied_with(velocity=state.velocity + staggered_forces * self.delta_time)
 
-		with tf.
-
-		return self.physics.step(controlled_state, self.delta_time)
+		return self.tf_physics_step(controlled_state)
+		#return self.physics.step(controlled_state, self.delta_time)
 
 	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, use_time=False, 
 			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, 
@@ -147,6 +152,7 @@ class NavierEnv(gym.Env):
 			self.action_recorder.reset()
 
 		self.init_state = self.init_gen()
+
 		self.cont_state = self.init_state.copied_with()
 		self.pass_state = self.init_state.copied_with()
 		self.prec_state = self.init_state.copied_with()
@@ -176,7 +182,8 @@ class NavierEnv(gym.Env):
 			f_prec = self.force_gen(self.action_recorder.replay()).copy()
 			self.prec_state = self.step_sim(self.prec_state, f_prec)
 
-		self.pass_state = self.physics.step(self.pass_state, self.delta_time)
+		self.pass_state = self.tf_physics_step(self.pass_state)
+		#self.pass_state = self.physics.step(self.pass_state, self.delta_time)
 
 		new_obs = np.squeeze(self.cont_state.density.data, axis=0)
 

@@ -159,6 +159,8 @@ class UNET(torch.nn.Module):
 
 		self.blocks.append(torch.nn.Sequential(*mods))
 
+		print([sum(p.numel() for p in block.parameters()) for block in self.blocks])
+
 		print('Using U-Net with %d levels' % num_levels)
 		print('Number of Blocks: %d' % len(self.blocks))
 
