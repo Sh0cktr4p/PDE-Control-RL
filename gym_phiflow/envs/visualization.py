@@ -177,12 +177,11 @@ class FilePlotter(FileViz):
 		self.data = []
 
 	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
-		return self.render_png(fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames)
+		return self.render_gif(fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, False)
 
 	def render_png(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
 		fields = fields[0:3]
 		labels = labels[0:3]
-		#if step_idx % 2 == 0:
 		self.data.append(fields)
 
 		if step_idx == ep_len - 1:
@@ -198,7 +197,7 @@ class FilePlotter(FileViz):
 				plt.close()
 			self.data = []
 
-	def render_gif(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
+	def render_gif(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):		
 		fig, _ = plot_fields(fields, labels, max_value, signed)
 
 		path = os.path.join(self.image_dir, '%s%04d_%04d.png' % (plot_name, ep_idx, step_idx))

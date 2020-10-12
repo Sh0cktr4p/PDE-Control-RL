@@ -11,5 +11,5 @@ def test_policy(sim_name='burger', key='00', itr='last', label=''):
 	env = gym.make(name)
 	run_policy(env, get_action, num_episodes=100)
 
-#test_policy('burger','104', label='efn')
-test_policy('burger','109', label='loong')
+#test_policy('burger','108', label='loong', itr=4999)
+test_policy('burger','108', label='unet', itr=7000)

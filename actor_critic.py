@@ -6,12 +6,12 @@ import traceback
 
 class RNN(torch.nn.Module):
 
-	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
+	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
 		print('Using Recurrent Network')
-		self.x_size = np.prod(obs_shape)
+		self.x_size = np.prod(input_shape)
 		self.h_size = sizes[0]
-		self.y_size = sizes[-1]
+		self.y_size = output_dim
 		self.flt = torch.nn.Flatten()
 		self.rnn = torch.nn.GRU(self.x_size, self.h_size, batch_first=True)
 		layers = []
@@ -48,7 +48,7 @@ class RNN(torch.nn.Module):
 
 class CNN(torch.nn.Module):
 
-	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
+	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
 		print('Using Convolutional Network')
 
@@ -58,7 +58,7 @@ class CNN(torch.nn.Module):
 		layers = []
 
 		# Add input channels to conv sizes
-		ext_conv_sizes = [obs_shape[-1]] + list(conv_sizes)
+		ext_conv_sizes = [input_shape[-1]] + list(conv_sizes)
 		print('Filter counts: ', ext_conv_sizes)
 
 		for i in range(len(conv_sizes)):
@@ -67,7 +67,7 @@ class CNN(torch.nn.Module):
 		layers.append(torch.nn.Flatten())
 
 		# Add flatten layer output to lin sizes
-		ext_lin_sizes = [(np.prod(obs_shape[:-1]) * conv_sizes[-1]) // 2 ** (2 * len(conv_sizes))] + list(lin_sizes)
+		ext_lin_sizes = [(np.prod(input_shape[:-1]) * conv_sizes[-1]) // 2 ** (2 * len(conv_sizes))] + list(lin_sizes)
 		print('Fully connected layer sizes: ', ext_lin_sizes)
 
 		for j in range(len(lin_sizes)):
@@ -80,56 +80,126 @@ class CNN(torch.nn.Module):
 		return self.seq(x.permute(0, 3, 1, 2))
 
 
+class UNET(torch.nn.Module):
+	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
+		super().__init__()
+
+		num_levels = len(sizes)
+
+		assert num_levels > 1
+
+		print('Input shape: %s' % str(input_shape))
+		print('Output dim: %s' % str(output_dim))
+
+		input_channels = 2
+		output_channels = 1
+
+		kernel_size = 3
+		stride = 1
+		padding = 1
+
+		maxpool_size = 2
+
+		transpose_conv_kernel_size = 2
+		transpose_conv_stride = 2
+
+		conv = torch.nn.Conv1d
+		maxp = torch.nn.MaxPool1d
+		cvtp = torch.nn.ConvTranspose1d
+
+		base_filter_count = 8
+
+		self.blocks = torch.nn.ModuleList()
+
+		self.blocks.append(torch.nn.Sequential(
+			conv(input_channels, base_filter_count, kernel_size, stride, padding), activation(),
+			conv(base_filter_count, base_filter_count, kernel_size, stride, padding), activation()
+		))
+
+		for i in range(num_levels - 1):
+			self.blocks.append(torch.nn.Sequential(
+				maxp(maxpool_size),
+				conv(base_filter_count * 2**i, base_filter_count * 2**(i+1), kernel_size, stride, padding), activation(),
+				conv(base_filter_count * 2**(i+1), base_filter_count * 2**(i+1), kernel_size, stride, padding), activation()
+			))
+
+		self.blocks.append(torch.nn.Sequential(
+			maxp(maxpool_size),
+			conv(base_filter_count * 2**(num_levels-1), base_filter_count * 2**num_levels, kernel_size, stride, padding), activation(),
+			conv(base_filter_count * 2**num_levels, base_filter_count * 2**num_levels, kernel_size, stride, padding), activation(),
+			cvtp(base_filter_count * 2**num_levels, base_filter_count * 2**(num_levels-1), transpose_conv_kernel_size, transpose_conv_stride)
+		))
+
+		for i in range(num_levels - 1):
+			self.blocks.append(torch.nn.Sequential(
+				conv(base_filter_count * 2**(num_levels-i), base_filter_count * 2**(num_levels-i-1), kernel_size, stride, padding), activation(),
+				conv(base_filter_count * 2**(num_levels-i-1), base_filter_count * 2**(num_levels-i-1), kernel_size, stride, padding), activation(),
+				cvtp(base_filter_count * 2**(num_levels-i-1), base_filter_count * 2**(num_levels-i-2), transpose_conv_kernel_size, transpose_conv_stride),
+			))
+
+		mods = [
+			conv(base_filter_count * 2, base_filter_count, kernel_size, stride, padding), activation(),
+			conv(base_filter_count, base_filter_count, kernel_size, stride, padding), activation(),
+			conv(base_filter_count, output_channels, stride, padding), output_activation(),
+			torch.nn.Flatten()
+		]
+
+		if output_dim == 1:
+			mods += [torch.nn.Flatten(), torch.nn.Linear(np.prod(input_shape[:-1]), 1)]
+
+		self.blocks.append(torch.nn.Sequential(*mods))
+
+		print('Using U-Net with %d levels' % num_levels)
+		print('Number of Blocks: %d' % len(self.blocks))
+
+	def forward(self, x):
+		block_outputs = []
+
+		if len(x.shape) == 3:
+			x = x.permute(0, 2, 1)
+		elif len(x.shape) == 4:
+			x = x.permute(0, 3, 1, 2)
+
+		for i in range(len(self.blocks) // 2):
+			x = self.blocks[i](x)
+			block_outputs.append(x)
+
+		x = self.blocks[len(self.blocks) // 2](x)
+
+		for i in range(len(self.blocks) // 2):
+			block_idx = len(self.blocks) // 2 + i + 1
+			x = torch.cat((x, block_outputs[-(i+1)]), 1)
+			x = self.blocks[block_idx](x)
+
+		return x
+
+
 class FCN(torch.nn.Module):
 
-	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
+	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
 		print('Using fully connected network')
 		layers = [torch.nn.Flatten()]
-		ext_sizes = [np.prod(obs_shape)] + list(sizes)
+		ext_sizes = [np.prod(input_shape)] + list(sizes) + [output_dim]
 
 		for i in range(len(sizes)):
 			act = activation if i < len(sizes) - 1 else output_activation
 			layers += [torch.nn.Linear(ext_sizes[i], ext_sizes[i+1]), act()]
+
+			if i < len(sizes) - 1:
+				layers += [torch.nn.Dropout(0.3)]
 
 		self.seq = torch.nn.Sequential(*layers)
 
 	def forward(self, x):
 		return self.seq(x)
 
- 
-def mlp(obs_shape, sizes, activation, output_activation=torch.nn.Identity):
-	#return RNN(obs_shape, sizes, activation, output_activation)
-	
-	layers = []
-
-	print(obs_shape)
-
-	obs_shape = tuple([obs_shape[-1]] + list(obs_shape[:-1]))
-
-	if(len(obs_shape) == 3) and np.prod(obs_shape[1:]) % 64 == 0 and obs_shape[1] == obs_shape[2]:
-		print('Using convolutional layers')
-		layers += [torch.nn.Conv2d(obs_shape[0], 8, 3, padding=1), torch.nn.MaxPool2d(2), activation()]
-		layers += [torch.nn.Conv2d(8, 16, 3, padding=1), torch.nn.MaxPool2d(2), activation()]
-		layers += [torch.nn.Conv2d(16, 32, 3, padding=1), activation()]
-		layers += [torch.nn.Flatten()]
-
-		sizes[0] = np.prod(obs_shape[1:]) // 2
-	else:
-		print('Using fully connected model')
-		layers += [torch.nn.Flatten(), torch.nn.Linear(np.prod(obs_shape), sizes[0]), activation()]
-	
-	for j in range(len(sizes)-1):
-		act = activation if j < len(sizes)-2 else output_activation
-		layers += [torch.nn.Linear(sizes[j], sizes[j+1]), act()]
-	return torch.nn.Sequential(*layers)
-
 
 class MLPCategoricalActor(core.Actor):
 
 	def __init__(self, obs_shape, act_dim, hidden_sizes, activation, network):
 		super().__init__()
-		self.logits_net = network(obs_shape, list(hidden_sizes) + [act_dim], activation)
+		self.logits_net = network(obs_shape, act_dim, list(hidden_sizes), activation)
 
 	def _distribution(self, obs):
 		logits = self.logits_net(obs)
@@ -145,7 +215,7 @@ class MLPGaussianActor(core.Actor):
 		super().__init__()
 		log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
 		self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
-		self.mu_net = network(obs_shape, list(hidden_sizes) + [act_dim], activation)
+		self.mu_net = network(obs_shape, act_dim, list(hidden_sizes), activation)
 
 	def _distribution(self, obs):
 		mu = self.mu_net(obs)
@@ -160,7 +230,7 @@ class MLPCritic(torch.nn.Module):
 
 	def __init__(self, obs_shape, hidden_sizes, activation, network):
 		super().__init__()
-		self.v_net = network(obs_shape, list(hidden_sizes) + [1], activation)
+		self.v_net = network(obs_shape, 1, list(hidden_sizes), activation)
 
 	def forward(self, obs):
 		return torch.squeeze(self.v_net(obs), -1) # Critical to ensure v has right shape.

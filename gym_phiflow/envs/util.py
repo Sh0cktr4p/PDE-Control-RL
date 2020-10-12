@@ -141,6 +141,24 @@ def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, act_rec, epis_
 	return vis_extractor(state)
 
 
+#[1, 1, 2, 2, 1, 0, 1, 1, 0, 0, 1, 1, 2, 2, 0, 2, 2, 1, 0, 1, 1, 0, 0, 1, 1, 1, 2, 2, 2, 2, 2, 2]
+#[1, 1, 1, 2, 0, 0, 1, 2, 0, 1, 0, 2, 0, 1, 2, 1, 1, 0, 0, 0, 1, 2, 2, 2, 1, 0, 0, 0, 2, 2, 2, 1]
+#[3, 44, 23, 54, 41, 57, 71, 31, 57, 5, 51, 40, 43, 54, 60, 50, 61, 20, 28, 57, 66, 12, 60, 69, 4, 66, 47, 18, 43, 76, 55, 29]
+#[36, 36, 2, 51, 21, 49, 38, 46, 8, 1, 23, 33, 72, 37, 51, 45, 2, 42, 16, 49, 16, 28, 52, 28, 8, 45, 78, 10, 10, 63, 67, 67]
+#[1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+#[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+prebaked_actions = [1, 1, 1, 2, 0, 2, 1, 2, 1, 1, 1, 1, 2, 0, 1, 0, 1, 2, 0, 1, 1, 0, 2, 0, 1, 1, 0, 2, 1, 0, 0, 0]
+action_index = 0
+
+def pick_action(cont):
+	global action_index
+	global prebaked_actions
+	action = prebaked_actions[action_index]
+	action_index = (action_index + 1) % 32
+	if cont:
+		action = decode_action(action, 1, 3) - 1
+	return action
+
 # Yields a function for generating random actions mimicking network outputs
 # act_type:			enum value describing the space of possible actions
 # act_dim:			number of action parameters
@@ -150,14 +168,17 @@ def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, act_rec, epis_
 def get_act_gen(act_type, act_dim, enf_disc=False):
 	if act_type == ActionType.CONTINUOUS:
 		if enf_disc:
+			#return lambda: np.array(pick_action(True))
 			return lambda: np.random.randint(low=-1, high=2, size=act_dim)
 		else:
+			#return lambda: np.repeat(-0.087, act_dim)
 			return lambda: np.repeat(np.random.normal(0, 0.1), act_dim)
 	elif act_type == ActionType.UNMODIFIED:
 		return lambda: np.zeros(shape=(act_dim,))
 	elif act_type == ActionType.DISCRETE_2:
 		return lambda: np.random.randint(2 ** act_dim)
 	elif act_type == ActionType.DISCRETE_3:
+		#return lambda: pick_action(False)
 		return lambda: np.random.randint(3 ** act_dim)
 	else:
 		raise NotImplementedError()
@@ -296,5 +317,15 @@ class ActionRecorder:
 		self.actions.append(action)
 
 	def replay(self):
-		return self.actions[self.step_idx]
+		action = self.actions[self.step_idx]
 		self.step_idx += 1
+		return action
+
+
+def get_action_recorder(goal_type):
+	if goal_type == GoalType.ZERO or goal_type == GoalType.RANDOM or goal_type == GoalType.PREDEFINED:
+		return None
+	elif goal_type == GoalType.REACHABLE or goal_type == GoalType.CONSTANT_FORCE:
+		return ActionRecorder()
+	else:
+		raise NotImplementedError()
