@@ -6,6 +6,7 @@ twenty400 = util.act_points(size=(20,20), indices=tuple(zip(*[(i, 0) for i in ra
 #complete256 = np.ones(shape=(65, 65), dtype=np.bool)
 #complete256 = util.act_points(size=(65,65), indices=tuple(zip(*[(i, 0) for i in range(65)])))
 block256 = util.act_points(size=(16,16), indices=tuple(zip(*[(i,j) for i in range(5,11) for j in range(5,11)])))
+complete64 = util.act_points(size=(8, 8), indices=tuple(zip(*[(i,j) for i in range(8) for j in range(8)])))
 complete256 = util.act_points(size=(16, 16), indices=tuple(zip(*[(i,j) for i in range(16) for j in range(16)])))
 block1089 = util.act_points(size=(17,17), indices=tuple(zip(*[(i, j) for i in range(6,11) for j in range(6,11)])))
 
@@ -104,3 +105,48 @@ class NavierEnvEverything2DShapes(NavierEnv):
 			rew_type=util.RewardType.ABSOLUTE,
 			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
 			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1))
+
+class NavierEnvEverything2DShapesObsFinSmoothed(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v308', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
+			rew_type=util.RewardType.FIN_APPR, rew_force_factor=0.1,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
+			all_visible=True)
+
+class NavierEnvEverything2DShapesObsSqSDFSmoothed(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v309', act_type=util.ActionType.CONTINUOUS, 
+			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
+			rew_type=util.RewardType.ABS_FORC, rew_force_factor=0.1, loss_fn=util.l1_loss,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), True).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), True).reshape(1, 15, 15, 1),
+			all_visible=True, sdf_rew=True)
+
+class NavierEnvEverything2DShapesObsSqSDFFinSmoothed(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v310', act_type=util.ActionType.CONTINUOUS, 
+			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
+			rew_type=util.RewardType.FIN_APPR, rew_force_factor=0.1, loss_fn=util.l1_loss,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), True).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), True).reshape(1, 15, 15, 1),
+			all_visible=True, sdf_rew=True)
+
+class NavierEnvEverything2DShapesObsSqSmoothedSimple(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v311', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete64, goal_type=util.GoalType.PREDEFINED,
+			rew_type=util.RewardType.ABS_FORC, rew_force_factor=0.02,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((7, 7), shape_field.shapes_basic, True).reshape(1, 7, 7, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((7, 7), shape_field.shapes_basic, True).reshape(1, 7, 7, 1),
+			all_visible=True)
+
+class NavierEnvEverything2DShapesObsSqSmoothedCheap(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v312', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete64, goal_type=util.GoalType.PREDEFINED,# 1 1 -> 5 5
+			rew_type=util.RewardType.ABS_FORC, rew_force_factor=0.0,
+			init_field_gen=lambda: shape_field.Rect(2, 2).get_sdf_field((7, 7), np.array([1, 1])).reshape(1, 7, 7, 1),
+			goal_field_gen=lambda: shape_field.Rect(2, 2).get_sdf_field((7, 7), np.array([5, 5])).reshape(1, 7, 7, 1),
+			all_visible=True)

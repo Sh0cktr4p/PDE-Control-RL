@@ -1,7 +1,6 @@
 import gym
 from enum import Enum
 import numpy as np
-import phi.flow as phiflow
 from gym_phiflow.envs import phiflow_util
 
 class ActionType(Enum):
@@ -17,6 +16,7 @@ class GoalType(Enum):
 	REACHABLE = 2			# Goal field is precomputed by applying random actions at each step
 	PREDEFINED = 3			# Custom goal creation routine
 	CONSTANT_FORCE = 4		# Goal field is precomputed by applying the same random action at each field value and time step
+	GAUSS_FORCE = 5			# Goal field is precomputed by applying a set of gaussian distributed field values at each time step
 
 
 class RewardType(Enum):
@@ -46,7 +46,7 @@ def create_forces(indices, forces, actions):
 # action count:	number of discrete actions possible per action point, base of decoded action value
 #
 # returns:	 	array of (point_count) values ranging from zero to (action_count-1)
-def decode_action(action, point_count, action_count):
+def decode_discrete_action(action, point_count, action_count):
 	return action // action_count ** np.arange(point_count) % action_count
 
 
@@ -70,9 +70,9 @@ def get_force_gen(act_type, act_params, forces_shape, synchronized):
 	elif act_type == ActionType.UNMODIFIED:
 		return lambda a: np.zeros(forces_shape)
 	elif act_type == ActionType.DISCRETE_2:
-		return lambda a: create_forces(indices, forces, decode_action(a, act_size, 2) * 2 - 1)
+		return lambda a: create_forces(indices, forces, decode_discrete_action(a, act_size, 2) * 2 - 1)
 	elif act_type == ActionType.DISCRETE_3:
-		return lambda a: create_forces(indices, forces, decode_action(a, act_size, 3) - 1)
+		return lambda a: create_forces(indices, forces, decode_discrete_action(a, act_size, 3) - 1)
 	else:
 		raise NotImplementedError()
 
@@ -99,19 +99,16 @@ def get_action_space(act_type, act_dim):
 # vis_shape:		shape of the observable part of the current state
 # goal_type:		enum value indicating if the goal state should be appended to the observation space
 # goal_channels:	determines how many channels should be added if the goal is included in the observation space
-# use_time:			flag indicating if the network should get information about the current position in time
 #
 # returns:		gym space describing network input
-def get_observation_space(vis_shape, goal_type, goal_channels, use_time):
+def get_observation_space(vis_shape, goal_type, goal_channels):
 	if goal_type == GoalType.ZERO:
 		obs_shape = vis_shape
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
-		or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
+			or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE \
+			or goal_type == GoalType.GAUSS_FORCE:
 		obs_shape = increase_channels(vis_shape, goal_channels)
 	else:
-		raise NotImplementedError()
-
-	if use_time:
 		raise NotImplementedError()
 
 	return gym.spaces.Box(-np.inf, np.inf, shape=obs_shape, dtype=np.float32)
@@ -134,9 +131,9 @@ def run_trajectory(action_gen, force_gen, step_fn, vis_extractor, act_rec, epis_
 		action_gen = lambda: action
 	
 	for _ in range(epis_len):
-		act = action_gen()
-		act_rec.record(act)
-		forces = force_gen(act)
+		current_action = action_gen()
+		act_rec.record(current_action)
+		forces = force_gen(current_action)
 		state = step_fn(state, forces)
 
 	return vis_extractor(state)
@@ -162,6 +159,22 @@ def get_act_gen(act_type, act_dim, enf_disc=False):
 		return lambda: np.random.randint(3 ** act_dim)
 	else:
 		raise NotImplementedError()
+
+
+def gaussian(dim, loc, amp, sig):
+	return amp * np.exp(-0.5 * (np.arange(dim) / dim - loc) ** 2 / sig ** 2)
+
+
+def gaussian_clash(dim, l_loc, l_amp, l_sig, r_loc, r_amp, r_sig):
+	return gaussian(dim, l_loc, l_amp, l_sig) + gaussian(dim, r_loc, r_amp, r_sig)
+
+
+def get_gauss_act_gen(act_dim):
+	return lambda: gaussian(act_dim, np.random.uniform(0.4, 0.6), np.random.uniform(-0.05, 0.05) * act_dim, np.random.uniform(0.1, 0.4))
+
+
+def get_gauss_clash_gen(dim):
+	return lambda: gaussian_clash(dim, np.random.uniform(0.2, 0.4), np.random.uniform(0, 3), np.random.uniform(0.05, 0.15), np.random.uniform(0.6, 0.8), np.random.uniform(-3, 0), np.random.uniform(0.05, 0.15))
 
 
 # Returns a function to generate a goal field for a given initial input state
@@ -193,6 +206,9 @@ def get_goal_gen(force_gen, step_fn, vis_extractor, rand_state_gen, act_type,
 	elif goal_type == GoalType.CONSTANT_FORCE:
 		action_gen = get_act_gen(act_type, act_dim, enf_disc=False)
 		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, act_rec, epis_len, s, True)
+	elif goal_type == GoalType.GAUSS_FORCE:
+		action_gen = get_gauss_act_gen(act_dim)
+		return lambda s: run_trajectory(action_gen, force_gen, step_fn, vis_extractor, act_rec, epis_len, s, True)
 	else:
 		raise NotImplementedError()
 
@@ -210,18 +226,15 @@ def act_points(size, indices):
 
 # Generator returning functions to asseble the observation space
 # goal_type:	enum value indicating if the goal state should be appended to the observation space
-# use_time:		flag indicating if the network should get information about the current position in time
 # epis_len:		length of a trajectory, used to normalize time values when supplied
 #
 # returns:		lambda network input assembly function
-def get_obs_gen(goal_type, use_time, epis_len):
-	if use_time:
-		raise NotImplementedError()
-
+def get_obs_gen(goal_type, epis_len):
 	if goal_type == GoalType.ZERO:
 		return lambda v, g, t: v
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
-			or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE:
+			or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE \
+			or goal_type == GoalType.GAUSS_FORCE:
 		return lambda v, g, t: np.append(v, g, axis=-1)
 	else:
 		raise NotImplementedError()
@@ -303,7 +316,7 @@ class ActionRecorder:
 def get_action_recorder(goal_type):
 	if goal_type == GoalType.ZERO or goal_type == GoalType.RANDOM or goal_type == GoalType.PREDEFINED:
 		return None
-	elif goal_type == GoalType.REACHABLE or goal_type == GoalType.CONSTANT_FORCE:
+	elif goal_type == GoalType.REACHABLE or goal_type == GoalType.CONSTANT_FORCE or goal_type == GoalType.GAUSS_FORCE:
 		return ActionRecorder()
 	else:
 		raise NotImplementedError()

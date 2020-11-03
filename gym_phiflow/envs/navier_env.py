@@ -72,7 +72,7 @@ class NavierEnv(gym.Env):
 
 	def get_init_field_gen(self, init_field_gen):
 		if init_field_gen:
-			return lambda: self.get_state_with(shape_field.to_density_field(init_field_gen(), 10))
+			return lambda: self.get_state_with(shape_field.to_density_field(init_field_gen(), self.den_scale))
 		else:
 			return self.get_random_state
 
@@ -81,12 +81,6 @@ class NavierEnv(gym.Env):
 		reshaped_goal_obs = pad_to_shape(goal, list(reshaped_state_obs.shape[:-1]) + [1])
 		return self.obs_gen(reshaped_state_obs, reshaped_goal_obs, self.step_idx)
 
-	def tf_physics_step(self, state):
-		in_state = state.copied_with(density=tf.placeholder(dtype=tf.float32, shape=state.density.data.shape), velocity=tf.placeholder(dtype=tf.float32, shape=state.velocity.staggered_tensor().shape))
-		print(in_state.density.data.shape)
-		out_state = self.physics.step(in_state, self.delta_time)
-		return tf.Session().run(out_state, feed_dict={in_state: state})
-
 	def step_sim(self, state, forces):
 		staggered_forces = phiflow.field.StaggeredGrid(forces.reshape(state.velocity.staggered_tensor().shape))
 		controlled_state = state.copied_with(velocity=state.velocity + staggered_forces * self.delta_time)
@@ -94,14 +88,15 @@ class NavierEnv(gym.Env):
 		return self.tf_physics_step(controlled_state)
 		#return self.physics.step(controlled_state, self.delta_time)
 
-	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, use_time=False, 
+	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, 
 			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, 
 			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, loss_fn=util.l2_loss,
 			synchronized=False, init_field_gen=None, goal_field_gen=None, all_visible=False, sdf_rew=False):
+		act_points = np.squeeze(act_points)
 		# Multi-dimensional fields have parameters for each of these directions at each point; act_points does not reflect that
 		act_params = util.get_all_act_params(act_points)
 		
-		act_dim = len(act_points.shape) if synchronized else np.sum(act_params)
+		act_dim = act_points.ndim if synchronized else np.sum(act_params)
 
 		self.step_idx = 0
 		self.epis_idx = 0
@@ -109,7 +104,7 @@ class NavierEnv(gym.Env):
 		self.delta_time = dt
 		self.den_scale = den_scale
 		self.exp_name = name
-		self.physics = phiflow.IncompressibleFlow(pressure_solver=phi.tf.tf_cuda_pressuresolver.CUDASolver())
+		self.physics = phiflow.IncompressibleFlow(pressure_solver=phiflow.GeometricCG())#(pressure_solver=phi.tf.tf_cuda_pressuresolver.CUDASolver())
 		#self.physics = phiflow.IncompressibleFlow()
 
 		# Density field is one smaller in every dimension than the velocity field
@@ -124,7 +119,7 @@ class NavierEnv(gym.Env):
 		self.action_recorder = util.get_action_recorder(goal_type)
 
 		self.action_space = util.get_action_space(act_type, act_dim)
-		self.observation_space = util.get_observation_space(vis_shape, goal_type, 1, use_time)
+		self.observation_space = util.get_observation_space(vis_shape, goal_type, 1)
 
 		self.force_gen = util.get_force_gen(act_type, act_params, forces_shape, synchronized)
 		
@@ -136,7 +131,7 @@ class NavierEnv(gym.Env):
 			lambda s: s.density.data.reshape(goal_vis_shape), self.get_random_state, act_type, goal_type, 
 			goal_vis_shape, act_dim, epis_len, self.action_recorder, goal_field_gen)
 		self.vis_extractor = get_vis_extractor(all_visible)
-		self.obs_gen = util.get_obs_gen(goal_type, use_time, epis_len)
+		self.obs_gen = util.get_obs_gen(goal_type, epis_len)
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor, epis_len, loss_fn)
 		self.cont_state = None	# Controlled state
 		self.pass_state = None	# Passive state
@@ -146,26 +141,35 @@ class NavierEnv(gym.Env):
 		self.lviz = None
 		self.fviz = None
 		self.force_collector = None
+		self.test_mode = False
+
+		sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.1)))
+		sim_in_ph = self.init_gen().copied_with(density=phiflow.placeholder, velocity=phiflow.placeholder)
+		sim_out_ph = self.physics.step(sim_in_ph, self.delta_time)
+		sess.run(tf.global_variables_initializer())
+		sess.graph.finalize()
+		get_feed_dict = lambda s: {k:v for (k, v) in zip(phiflow.struct.flatten(sim_in_ph), phiflow.struct.flatten(s))}
+		self.tf_physics_step = lambda s: phiflow.struct.unflatten(sess.run(phiflow.struct.flatten(sim_out_ph), feed_dict=get_feed_dict(s)), s)
 
 	def reset(self):
 		if self.action_recorder is not None:
 			self.action_recorder.reset()
 
-		self.init_state = self.init_gen()
+		self.cont_state = self.init_gen()
+		self.goal_obs = self.goal_gen(self.cont_state.copied_with())
 
-		self.cont_state = self.init_state.copied_with()
-		self.pass_state = self.init_state.copied_with()
-		self.prec_state = self.init_state.copied_with()
-		self.goal_obs = self.goal_gen(self.init_state.copied_with())
+		if self.test_mode:
+			self.init_state = self.cont_state.copied_with()
+			self.pass_state = self.cont_state.copied_with()
+			self.prec_state = self.cont_state.copied_with()
+			
+			print('Average forces: %f' % self.force_collector.get_forces())
 
 		if self.shape_mode:
 			self.sdf = self.goal_obs
-			self.goal_obs = shape_field.to_density_field(self.goal_obs, 10)
-
+			self.goal_obs = shape_field.to_density_field(self.goal_obs, self.den_scale)
+			
 		self.step_idx = 0
-
-		if self.force_collector is not None:
-			print('Average forces: %f' % self.force_collector.get_forces())
 
 		return self.combine_to_obs(self.cont_state, self.goal_obs)
 
@@ -178,12 +182,15 @@ class NavierEnv(gym.Env):
 
 		self.cont_state = self.step_sim(self.cont_state, forces)
 		
-		if self.action_recorder is not None:
-			f_prec = self.force_gen(self.action_recorder.replay()).copy()
-			self.prec_state = self.step_sim(self.prec_state, f_prec)
+		if self.test_mode:
+			if self.action_recorder is not None:
+				f_prec = self.force_gen(self.action_recorder.replay()).copy()
+				self.prec_state = self.step_sim(self.prec_state, f_prec)
 
-		self.pass_state = self.tf_physics_step(self.pass_state)
-		#self.pass_state = self.physics.step(self.pass_state, self.delta_time)
+			self.pass_state = self.tf_physics_step(self.pass_state)
+			#self.pass_state = self.physics.step(self.pass_state, self.delta_time)
+			
+			self.force_collector.add_forces(forces)
 
 		new_obs = np.squeeze(self.cont_state.density.data, axis=0)
 
@@ -198,22 +205,25 @@ class NavierEnv(gym.Env):
 		done = self.step_idx == self.epis_len
 		reward = self.rew_gen(err_old, err_new, forces, done)
 
-		if self.force_collector is not None:
-			self.force_collector.add_forces(forces)
+		print(reward)
 
 		if done:
 			self.epis_idx += 1
 
 		return obs, reward, done, {}
 
-	def render(self, mode='f'):
-		if self.force_collector is None:
+	def render(self, mode='l'):
+		if not self.test_mode:
+			self.test_mode = True
 			self.force_collector = util.ForceCollector()
+			self.init_state = self.cont_state.copied_with()
+			self.pass_state = self.cont_state.copied_with()
+			self.prec_state = self.cont_state.copied_with()
 
 		fields, labels = self.get_fields_and_labels()
 
 		ndim = len(self.den_shape)
-		max_value = 0.5
+		max_value = 0.25
 		signed = False
 
 		if mode == 'l':

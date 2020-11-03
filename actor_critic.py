@@ -3,7 +3,6 @@ import torch
 import numpy as np
 import traceback
 
-
 class RNN(torch.nn.Module):
 
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
@@ -184,6 +183,142 @@ class UNET(torch.nn.Module):
 			x = self.blocks[block_idx](x)
 
 		return x
+
+
+class ResBlock(torch.nn.Module):
+	def __init__(self, fc, ks, st, pd, conv, act):
+		super().__init__()
+
+		self.res_block = torch.nn.Sequential(
+			conv(fc, fc, ks, st, pd),
+			act(),
+			conv(fc, fc, ks, st, pd)
+		)
+
+		self.final_act = act()
+
+	def forward(self, x):
+		return self.final_act(self.res_block(x) + x)
+
+
+class EncoderResBlock(torch.nn.Module):
+	def __init__(self, fi, fo, conv, act):
+		super().__init__()
+		self.enc_res_block = torch.nn.Sequential(
+			conv(fi, fo, 2, 2, 0),
+			act(),
+			ResBlock(fo, 3, 1, 1, conv, act),
+			ResBlock(fo, 3, 1, 1, conv, act)
+		)
+	
+	def forward(self, x):
+		return self.enc_res_block(x)
+
+class OneSidedPadding1D(torch.nn.Module):
+	def __init__(self, mode='constant'):
+		super().__init__()
+		self.mode = mode
+
+	def forward(self, x):
+		return torch.nn.functional.pad(x, (0, 1), mode=self.mode)
+
+class OneSidedPadding2D(torch.nn.Module):
+	def __init__(self, mode='constant'):
+		super().__init__()
+		self.mode = mode
+
+	def forward(self, x):
+		return torch.nn.functional.pad(x, (0, 1, 0, 1), mode=self.mode)
+
+class DecoderCombiner(torch.nn.Module):
+	def __init__(self, fi, fa, fo, conv, pad, act):
+		super().__init__()
+		self.upsampler = torch.nn.Upsample(scale_factor=2, mode='linear')
+		self.net = torch.nn.Sequential(
+			pad(),
+			conv(fi + fa, fo, 2, 1, 0),
+			act(),
+		)
+
+	def forward(self, x, l):
+		x = self.upsampler(x)
+		x = torch.cat((x, l), 1)
+		return self.net(x)
+
+class DecoderResBlock(torch.nn.Module):
+	def __init__(self, fi, fa, fo, conv, pad, act):
+		super().__init__()
+		self.combiner = DecoderCombiner(fi, fa, fo, conv, pad, act)
+		self.dec_res_blocks = torch.nn.Sequential(
+			ResBlock(fo, 3, 1, 1, conv, act),
+			ResBlock(fo, 3, 1, 1, conv, act)
+		)
+
+	def forward(self, x, l):
+		x = self.combiner(x, l)
+		return self.dec_res_blocks(x)
+
+
+class UnetLayer(torch.nn.Module):
+	def __init__(self, f_enc_in, f_enc_out, f_dec_in, f_dec_out, inner_net, conv, pad, act):
+		super().__init__()
+		self.encoder = EncoderResBlock(f_enc_in, f_enc_out, conv, act)
+		self.inner_net = inner_net
+		self.decoder = DecoderResBlock(f_dec_in, f_enc_in, f_dec_out, conv, pad, act)
+
+	def forward(self, x):
+		y = self.encoder(x)
+		y = self.inner_net(y)
+		return self.decoder(y, x)
+
+
+class MOD_UNET(torch.nn.Module):
+	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
+		super().__init__()
+		num_levels = len(sizes)
+
+		input_channels = 2
+
+		conv = torch.nn.Conv1d
+		pad = OneSidedPadding1D
+
+		fcs = sizes + [input_channels]
+
+		print("input shape: %s" % str(input_shape))
+
+		print("output dim: %s" % str(output_dim))
+
+		print("filter channels at different level(deep to shallow): %s" % str(fcs))
+
+		self.net = torch.nn.Sequential(
+			ResBlock(fcs[0], 3, 1, 1, conv, activation),
+			ResBlock(fcs[0], 3, 1, 1, conv, activation),
+			ResBlock(fcs[0], 3, 1, 1, conv, activation),
+		)
+
+		for i in range(num_levels):
+			f_enc_in = fcs[i+1]
+			f_enc_out = fcs[i]
+			f_dec_in = fcs[0] if i == 0 else 16
+			f_dec_out = 1 if i == num_levels - 1 else 16
+			print("%2i -> %2i   %2i -> %2i" % (f_enc_in, f_enc_in, f_enc_in, f_dec_out))
+			print("       |     %2i      " % (f_dec_in))
+			print("       |      |      ")
+			print("      %2i -> %2i      \n" % (f_enc_out, f_dec_in))
+			self.net = UnetLayer(f_enc_in, f_enc_out, f_dec_in, f_dec_out, self.net, conv, pad, activation)
+
+		if output_dim == 1:
+			self.appendix = torch.nn.Linear(np.prod(input_shape[:-1]), output_dim)
+		else:
+			self.appendix = torch.nn.Identity()
+
+	def forward(self, x):
+		if len(x.shape) == 3:
+			x = x.permute(0, 2, 1)
+		elif len(x.shape) == 4:
+			x = x.permute(0, 3, 1, 2)
+
+		return self.appendix(self.net(x))
 
 
 class FCN(torch.nn.Module):

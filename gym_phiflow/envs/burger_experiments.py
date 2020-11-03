@@ -65,17 +65,6 @@ class BurgerEnvContEightReachable(BurgerEnv):
 			act_points=eight16, goal_type=util.GoalType.REACHABLE,
 			rew_type=util.RewardType.ABS_FORC)
 
-class BurgerEnvThreeThreeReachableTime(BurgerEnv):
-	def __init__(self):
-		super().__init__(name='v09', use_time=True, act_type=util.ActionType.DISCRETE_3,
-		act_points=three16, goal_type=util.GoalType.REACHABLE)
-
-class BurgerEnvContEightReachableTime(BurgerEnv):
-	def __init__(self):
-		super().__init__(name='v10', use_time=True, act_type=util.ActionType.CONTINUOUS,
-			act_points=eight16, goal_type=util.GoalType.REACHABLE,
-			rew_type=util.RewardType.ABS_FORC)
-
 class BurgerEnvContSixteen2DReachable(BurgerEnv):
 	def __init__(self):
 		super().__init__(name='v11', act_type=util.ActionType.CONTINUOUS,
@@ -138,3 +127,15 @@ class BurgerEnvContCompleteConstantFin(BurgerEnv):
 		super().__init__(name='v108', act_type=util.ActionType.CONTINUOUS,
 			act_points=complete32, goal_type=util.GoalType.CONSTANT_FORCE,
 			rew_type=util.RewardType.FIN_APPR)
+
+class BurgerEnvContCompleteGaussFin(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v109', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete32, goal_type=util.GoalType.GAUSS_FORCE,
+			rew_type=util.RewardType.FIN_APPR)
+
+class BurgerEnvContCompleteGaussPow(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v110', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete32, goal_type=util.GoalType.GAUSS_FORCE,
+			rew_type=util.RewardType.ABSOLUTE)

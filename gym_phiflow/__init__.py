@@ -111,6 +111,11 @@ register(
 )
 
 register(
+    id='burger-v109',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteGaussFin'
+)
+
+register(
     id='navier-v00',
     entry_point='gym_phiflow.envs:NavierEnvTwo'
 )
@@ -168,4 +173,29 @@ register(
 register(
     id='navier-v307',
     entry_point='gym_phiflow.envs:NavierEnvEverything2DShapes'
+)
+
+register(
+    id='navier-v308',
+    entry_point='gym_phiflow.envs:NavierEnvEverything2DShapesObsFinSmoothed'
+)
+
+register(
+    id='navier-v309',
+    entry_point='gym_phiflow.envs:NavierEnvEverything2DShapesObsSqSDFSmoothed'
+)
+
+register(
+    id='navier-v310',
+    entry_point='gym_phiflow.envs:NavierEnvEverything2DShapesObsSqSDFFinSmoothed'
+)
+
+register(
+    id='navier-v311',
+    entry_point='gym_phiflow.envs:NavierEnvEverything2DShapesObsSqSmoothedSimple'
+)
+
+register(
+    id='navier-v312',
+    entry_point='gym_phiflow.envs:NavierEnvEverything2DShapesObsSqSmoothedCheap'
 )

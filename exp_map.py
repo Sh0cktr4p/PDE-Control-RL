@@ -25,6 +25,7 @@ exp_map = {
 	'106': 'cont_complete_constant_pow',
 	'107': 'cont_complete_constant_rel',
 	'108': 'cont_complete_constant_fin',
+	'109': 'cont_complete_gauss_fin',
 	'300': 'cont_complete_constant_2D_shapes_obs',
 	'301': 'cont_complete_constant_2D_shapes_obs_fin',
 	'302': 'cont_complete_2D_shapes_obs_sdf',
@@ -33,4 +34,9 @@ exp_map = {
 	'305': 'everything_2D_shapes_obs_sdf',
 	'306': 'everything_2D_shapes_obs',
 	'307': 'everything_2D_shapes',
+	'308': 'everything_2D_shapes_obs_fin_smoothed',
+	'309': 'everything_2D_shapes_obs_sq_sdf_smoothed',
+	'310': 'everything_2D_shapes_obs_sq_sdf_fin_smoothed',
+	'311': 'everything_2D_shapes_obs_sq_smoothed_simple',
+	'312': 'everything_2D_shapes_obs_sq_smoothed_cheap',
 }

@@ -15,7 +15,7 @@ def pf(field):
 	s = ''
 	for row in field:
 		for col in row:
-			s += '%8.4f, ' % col
+			s += '%5.2f, ' % col
 		s += '\n'
 	print(s)
 
@@ -48,12 +48,11 @@ class Shape:
 	def sdf(self, field_shape, offsets):
 		pass
 
-	def get_sdf_field(self, field_shape):
-		ranges = [field_shape[i] - self.size[i] + 1 for i in range(len(field_shape))]
-		off_vals = np.array([np.random.randint(r) for r in ranges])
-		#global shape_index
-		#off_val_options = [[2, 2], [8, 7]]
-		#off_vals = np.array(off_val_options[shape_index])
+	def get_sdf_field(self, field_shape, off_vals=None):
+		if off_vals is None:
+			ranges = [field_shape[i] - self.size[i] + 1 for i in range(len(field_shape))]
+			off_vals = np.array([np.random.randint(r) for r in ranges])
+
 		sdf_field = self.sdf(field_shape, off_vals)
 		return sdf_field
 
@@ -86,14 +85,16 @@ class Diamond(Shape):
 		return np.where(np.sum(q * r, axis=0) - r ** 2 > 0, -d, 0)
 
 
-def get_random_sdf_field(field_shape):
-	shapes = [Rect(3, 3), Rect(3, 4), Rect(4, 3), Rect(5, 2), Rect(2, 5), Rect(6, 2), Rect(2, 6),
-			Diamond(4), Diamond(5), Diamond(6)]
-	#global shape_index
-	#shape_index = (shape_index + 1) % 2
-	#shapes = [Diamond(5)]
-	#return shapes[shape_index].get_sdf_field(field_shape)
-	return shapes[np.random.randint(len(shapes))].get_sdf_field(field_shape)
+shapes_basic = [Rect(2, 2)]
+
+shapes = [Rect(3, 3), Rect(3, 4), Rect(4, 3), Rect(5, 2), Rect(2, 5), Rect(6, 2), Rect(2, 6),
+		Diamond(4), Diamond(5), Diamond(6)]
+
+
+field_dict = {}
+
+def get_random_sdf_field(field_shape, shape_list=shapes, squared=False):
+	return shape_list[np.random.randint(len(shape_list))].get_sdf_field(field_shape) ** (2 if squared else 1)
 
 
 def to_density_field(sdf_field, total_density):
