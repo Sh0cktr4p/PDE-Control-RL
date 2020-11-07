@@ -1,0 +1,3 @@
+-Network fires the fluid approximately in target direction
+-Again some kind of clockwise swirl
+-Fluid is again spread evenly across the field

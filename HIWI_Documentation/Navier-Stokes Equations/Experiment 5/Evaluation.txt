@@ -1,0 +1,12 @@
+ 
+-The bigger batch size seems to smooth out the reward values
+        significantly
+-But: Network obviously does not seem to successfully learn how to
+        approximate the target shape, so the reward progress is
+        likely caused by the network reducing the applied forces
+    => This also seems to lower reward variance as observed in
+            previous experiments
+    => Maybe even lower force penalties would be necessary
+    
+-Network does not seem to discern where to move the density values, even
+        though feedback for this is given at every time step

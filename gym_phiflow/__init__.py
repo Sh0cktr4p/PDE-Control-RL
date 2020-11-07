@@ -116,6 +116,21 @@ register(
 )
 
 register(
+    id='burger-v110',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteGaussPow'
+)
+
+register(
+    id='burger-v111',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteGaussFinBalanced'
+)
+
+register(
+    id='burger-v112',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteGaussPerfectFit'
+)
+
+register(
     id='navier-v00',
     entry_point='gym_phiflow.envs:NavierEnvTwo'
 )
@@ -198,4 +213,9 @@ register(
 register(
     id='navier-v312',
     entry_point='gym_phiflow.envs:NavierEnvEverything2DShapesObsSqSmoothedCheap'
+)
+
+register(
+    id='navier-v313',
+    entry_point='gym_phiflow.envs:NavierEnvEverything2DShapesObsSDFSmoothed'
 )

@@ -20,13 +20,15 @@ class BurgerEnv(gym.Env):
 					np.real(self.prec_state.velocity.data).reshape(-1),
 					np.real(self.pass_state.velocity.data).reshape(-1),
 					np.real(self.init_state.velocity.data).reshape(-1),
-					self.goal_obs.reshape(-1)]
+					self.goal_obs.reshape(-1)
+				]
 
 			labels = ['Controlled Simulation',
 					'Ground Truth Simulation',
 					'Uncontrolled Simulation',
 					'Initial Density Field',
-					'Goal Density Field']
+					'Goal Density Field'
+				]
 		elif ndim == 2:
 			fields = [self.cont_state.velocity.data,
 					self.init_state.velocity.data,
@@ -43,17 +45,21 @@ class BurgerEnv(gym.Env):
 		domain = phiflow.Domain(self.shape, box=phiflow.box[0:1])
 		return phiflow.BurgersVelocity(domain=domain, velocity=phiflow_util.GaussianClash(1), viscosity=0.003)
 
+	def apply_forces(self, state, forces):
+		return state.copied_with(velocity=state.velocity.data + forces.reshape(state.velocity.data.shape) * self.delta_time)
+
 	def step_sim(self, state, forces):
-		controlled_state = state.copied_with(velocity=state.velocity.data + forces.reshape(state.velocity.data.shape) * self.delta_time)
+		controlled_state = self.apply_forces(state, forces)
 		return self.physics.step(controlled_state, self.delta_time)
 
 	def __init__(self, epis_len=32, dt=0.03, vel_scale=1.0,
 			name='v0', act_type=util.ActionType.DISCRETE_2, loss_fn=util.l2_loss,
-			act_points=default_act_points, goal_type=util.GoalType.ZERO, 
+			act_points=default_act_points, goal_type=util.GoalType.ZERO, enf_perfect_fit=False,
 			rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, synchronized=False):
 		act_params = util.get_all_act_params(act_points)	# Important for multi-dimensional cases
 		act_dim = 1 if synchronized else np.sum(act_params)
 		
+		self.enf_perfect_fit = enf_perfect_fit
 		self.step_idx = 0
 		self.epis_idx = 0
 		self.epis_len = epis_len
@@ -107,6 +113,12 @@ class BurgerEnv(gym.Env):
 
 		self.cont_state = self.step_sim(self.cont_state, forces)
 		
+		if self.enf_perfect_fit:
+			if self.step_idx == self.epis_len:
+				err_new = self.goal_obs - self.vis_extractor(self.cont_state)
+				self.cont_state = self.apply_forces(self.cont_state, err_new / self.delta_time)
+				forces = np.abs(forces) + np.abs(err_new / self.delta_time) * self.epis_len
+
 		# Simulate the precomputed and uncontrolled states in test environments
 		if self.test_mode:
 			if self.action_recorder is not None:

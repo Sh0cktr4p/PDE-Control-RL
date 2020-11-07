@@ -1,0 +1,27 @@
+-As with previous experiments with the sdf reward function, the reward
+        values during training are all over the place
+-No real progress discernable, thus, training was quit early
+-Forces were not included in reward, so it just represents the proximity
+        to the target field
+-Basic idea was to square the distance field, so that the network would 
+        be given a bigger incentive to move the density values at least 
+        in the right direction and keeping them there instead of risking
+        overshooting
+    -Did not work convincingly, but maybe would have gotten better
+            with longer training
+-Network again performs a clockwise swirl (similar to experiment 1)
+    -More variations in the shape of the swirl and slightly more accurate       
+            into the target direction
+        -Could result from the twice as long training
+        
+-Main takeaways:
+    => SDF reward function seems too complicated for the network to         
+            comprehend, even with squared distances
+    => But: might also primarily be that just the reward values have a
+            higher variance as the network according to the tests does
+            seem to learn something; not much, but maybe even comparable
+            to the field difference reward experiments
+        => Longer experiments might still be interesting
+            
+-SDF reward implementation was again checked for possible errors,
+        seems correct

@@ -1,0 +1,4 @@
+-Different weighting seems to improve the target approximation 
+-Still not very good approximation
+    => Try even lower weighting, observe at which point the smoothness
+            of the simulation is lost and the network gets violent

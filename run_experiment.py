@@ -34,5 +34,5 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 		file.write(time_msg)
 
 
-run_experiment('burger', '108', 400, 200, label="flat_net")
-#run_experiment('burger', '109', 100, 100, label='delete_plzz')
+#run_experiment('burger', '110', 2000, 200, label="old_unet")
+run_experiment('burger', '112', 2000, 200, label='why')

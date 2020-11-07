@@ -179,7 +179,7 @@ class NavierEnv(gym.Env):
 		old_obs = np.squeeze(self.cont_state.density.data, axis=0)
 
 		forces = self.force_gen(action).copy()
-
+		
 		self.cont_state = self.step_sim(self.cont_state, forces)
 		
 		if self.test_mode:
@@ -205,8 +205,6 @@ class NavierEnv(gym.Env):
 		done = self.step_idx == self.epis_len
 		reward = self.rew_gen(err_old, err_new, forces, done)
 
-		print(reward)
-
 		if done:
 			self.epis_idx += 1
 
@@ -223,7 +221,7 @@ class NavierEnv(gym.Env):
 		fields, labels = self.get_fields_and_labels()
 
 		ndim = len(self.den_shape)
-		max_value = 0.25
+		max_value = 0.15
 		signed = False
 
 		if mode == 'l':

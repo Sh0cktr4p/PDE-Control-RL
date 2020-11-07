@@ -146,7 +146,7 @@ class FileRenderer(FileViz):
 			print('Frame written to %s' % path)
 		
 		if step_idx == ep_len:
-			combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len, remove_frames)
+			combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len+1, remove_frames)
 
 
 class LivePlotter(LiveViz):
@@ -192,4 +192,4 @@ class FilePlotter(FileViz):
 			print('Frame written to %s' % path)
 
 		if step_idx == ep_len:
-			combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len, remove_frames)
+			combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len+1, remove_frames)

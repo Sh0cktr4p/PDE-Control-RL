@@ -110,7 +110,7 @@ class NavierEnvEverything2DShapesObsFinSmoothed(NavierEnv):
 	def __init__(self):
 		super().__init__(name='v308', act_type=util.ActionType.CONTINUOUS,
 			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
-			rew_type=util.RewardType.FIN_APPR, rew_force_factor=0.1,
+			rew_type=util.RewardType.FIN_APPR, rew_force_factor=0.02,
 			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
 			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15)).reshape(1, 15, 15, 1),
 			all_visible=True)
@@ -119,9 +119,9 @@ class NavierEnvEverything2DShapesObsSqSDFSmoothed(NavierEnv):
 	def __init__(self):
 		super().__init__(name='v309', act_type=util.ActionType.CONTINUOUS, 
 			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
-			rew_type=util.RewardType.ABS_FORC, rew_force_factor=0.1, loss_fn=util.l1_loss,
-			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), True).reshape(1, 15, 15, 1),
-			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), True).reshape(1, 15, 15, 1),
+			rew_type=util.RewardType.ABS_FORC, rew_force_factor=0.02, loss_fn=util.l1_loss,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), squared=True).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), squared=True).reshape(1, 15, 15, 1),
 			all_visible=True, sdf_rew=True)
 
 class NavierEnvEverything2DShapesObsSqSDFFinSmoothed(NavierEnv):
@@ -129,8 +129,8 @@ class NavierEnvEverything2DShapesObsSqSDFFinSmoothed(NavierEnv):
 		super().__init__(name='v310', act_type=util.ActionType.CONTINUOUS, 
 			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
 			rew_type=util.RewardType.FIN_APPR, rew_force_factor=0.1, loss_fn=util.l1_loss,
-			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), True).reshape(1, 15, 15, 1),
-			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), True).reshape(1, 15, 15, 1),
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), squared=True).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), squared=True).reshape(1, 15, 15, 1),
 			all_visible=True, sdf_rew=True)
 
 class NavierEnvEverything2DShapesObsSqSmoothedSimple(NavierEnv):
@@ -150,3 +150,12 @@ class NavierEnvEverything2DShapesObsSqSmoothedCheap(NavierEnv):
 			init_field_gen=lambda: shape_field.Rect(2, 2).get_sdf_field((7, 7), np.array([1, 1])).reshape(1, 7, 7, 1),
 			goal_field_gen=lambda: shape_field.Rect(2, 2).get_sdf_field((7, 7), np.array([5, 5])).reshape(1, 7, 7, 1),
 			all_visible=True)
+
+class NavierEnvEverything2DShapesObsSDFSmoothed(NavierEnv):
+	def __init__(self):
+		super().__init__(name='v313', act_type=util.ActionType.CONTINUOUS, 
+			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
+			rew_type=util.RewardType.ABS_FORC, rew_force_factor=0.01, loss_fn=util.l1_loss,
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), squared=False).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), squared=False).reshape(1, 15, 15, 1),
+			all_visible=True, sdf_rew=True)

@@ -139,3 +139,15 @@ class BurgerEnvContCompleteGaussPow(BurgerEnv):
 		super().__init__(name='v110', act_type=util.ActionType.CONTINUOUS,
 			act_points=complete32, goal_type=util.GoalType.GAUSS_FORCE,
 			rew_type=util.RewardType.ABSOLUTE)
+
+class BurgerEnvContCompleteGaussFinBalanced(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v111', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete32, goal_type=util.GoalType.GAUSS_FORCE,
+			rew_type=util.RewardType.FIN_APPR, rew_force_factor=0.08)
+
+class BurgerEnvContCompleteGaussPerfectFit(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v112', act_type=util.ActionType.CONTINUOUS, 
+			act_points=complete32, goal_type=util.GoalType.GAUSS_FORCE, 
+			rew_type=util.RewardType.FIN_APPR, enf_perfect_fit=True)

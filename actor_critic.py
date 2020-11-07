@@ -3,6 +3,16 @@ import torch
 import numpy as np
 import traceback
 
+
+class Permute(torch.nn.Module):
+	def __init__(self, dims):
+		super().__init__()
+		self.dims = dims
+
+	def forward(self, x):
+		return x.permute(*self.dims)
+
+
 class RNN(torch.nn.Module):
 
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
@@ -79,6 +89,7 @@ class CNN(torch.nn.Module):
 		return self.seq(x.permute(0, 3, 1, 2))
 
 
+
 class UNET(torch.nn.Module):
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
@@ -108,11 +119,16 @@ class UNET(torch.nn.Module):
 		conv = torch.nn.Conv1d
 		maxp = torch.nn.MaxPool1d
 		cvtp = torch.nn.ConvTranspose1d
+		perm_fwd = Permute([0, 2, 1])
+		perm_bwd = Permute([0, 2, 1])
 
 		if len(input_shape) == 3:
+			print("Using 2D modules!")
 			conv = torch.nn.Conv2d
 			maxp = torch.nn.MaxPool2d
 			cvtp = torch.nn.ConvTranspose2d
+			perm_fwd = Permute([0, 3, 1, 2])
+			perm_bwd = Permute([0, 2, 3, 1])
 
 		print(output_channels)
 
@@ -121,6 +137,7 @@ class UNET(torch.nn.Module):
 		self.blocks = torch.nn.ModuleList()
 
 		self.blocks.append(torch.nn.Sequential(
+			perm_fwd,
 			conv(input_channels, base_filter_count, kernel_size, stride, padding), activation(),
 			conv(base_filter_count, base_filter_count, kernel_size, stride, padding), activation()
 		))
@@ -150,6 +167,7 @@ class UNET(torch.nn.Module):
 			conv(base_filter_count * 2, base_filter_count, kernel_size, stride, padding), activation(),
 			conv(base_filter_count, base_filter_count, kernel_size, stride, padding), activation(),
 			conv(base_filter_count, output_channels, stride, padding), output_activation(),
+			perm_bwd,
 			torch.nn.Flatten()
 		]
 
@@ -166,10 +184,10 @@ class UNET(torch.nn.Module):
 	def forward(self, x):
 		block_outputs = []
 
-		if len(x.shape) == 3:
-			x = x.permute(0, 2, 1)
-		elif len(x.shape) == 4:
-			x = x.permute(0, 3, 1, 2)
+		#if len(x.shape) == 3:
+		#	x = x.permute(0, 2, 1)
+		#elif len(x.shape) == 4:
+		#	x = x.permute(0, 3, 1, 2)
 
 		for i in range(len(self.blocks) // 2):
 			x = self.blocks[i](x)
@@ -233,7 +251,7 @@ class OneSidedPadding2D(torch.nn.Module):
 class DecoderCombiner(torch.nn.Module):
 	def __init__(self, fi, fa, fo, conv, pad, act):
 		super().__init__()
-		self.upsampler = torch.nn.Upsample(scale_factor=2, mode='linear')
+		self.upsampler = torch.nn.Upsample(scale_factor=2, mode='bilinear')
 		self.net = torch.nn.Sequential(
 			pad(),
 			conv(fi + fa, fo, 2, 1, 0),
@@ -277,10 +295,18 @@ class MOD_UNET(torch.nn.Module):
 		super().__init__()
 		num_levels = len(sizes)
 
-		input_channels = 2
+		input_channels = input_shape[-1]
 
-		conv = torch.nn.Conv1d
-		pad = OneSidedPadding1D
+		input_dim = len(input_shape) - 1
+
+		if input_dim == 1:
+			conv = torch.nn.Conv1d
+			pad = OneSidedPadding1D
+		elif input_dim == 2:
+			conv = torch.nn.Conv2d
+			pad = OneSidedPadding2D
+		else:
+			raise NotImplementedError()
 
 		fcs = sizes + [input_channels]
 
