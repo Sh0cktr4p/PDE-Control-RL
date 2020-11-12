@@ -47,4 +47,31 @@ Experiment 5:
     -2x down-/upsampling
     -Gamma: 0.99, pi lr = 2e-4, vf lr = 1e-3
 
+-'New' reward model: unify field proximity and force rewards
+    => In the last time step, subtract the forces that would be necessary 
+            to directly reach the target state from the reward
+        => Order in last timestep:
+            1) Apply network forces
+            2) Perform simulation
+            3) Apply necessary forces to reach target state
+            => Reward in final timestep: 
+                network_forces + x * remaining_forces
+                x: weighting factor, for example equal to the epoch
+                        length
+        => Why could a weighting factor be necessary/a good idea?
+            - Otherwise the network does not care as much if the
+                    target state is reached after the simulation step
+                    after its last action, if it would not output any
+                    forces in the last step the reward would be similar
+            -With the factor > 1: Network has a strong incentive to
+                    minimize the remaining forces
 
+Experiment 6:
+    -weighting factor for remaining forces equal to epoch length
+    -2x down-/upsampling
+    -Gamma: 0.99, pi lr = 2e-4, vf lr = 1e-3
+    
+Experiment 7:
+    -equivalent to experiment 6, but with the old experiment setup
+            where forces were equal across the field
+            

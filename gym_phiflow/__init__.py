@@ -131,6 +131,11 @@ register(
 )
 
 register(
+    id='burger-v113',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteConstantPerfectFit'
+)
+
+register(
     id='navier-v00',
     entry_point='gym_phiflow.envs:NavierEnvTwo'
 )

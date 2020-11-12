@@ -91,7 +91,7 @@ class NavierEnv(gym.Env):
 	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, 
 			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, 
 			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, loss_fn=util.l2_loss,
-			synchronized=False, init_field_gen=None, goal_field_gen=None, all_visible=False, sdf_rew=False):
+			synchronized=False, init_field_gen=None, goal_field_gen=None, all_visible=False, sdf_rew=False, rew_balancing=False):
 		act_points = np.squeeze(act_points)
 		# Multi-dimensional fields have parameters for each of these directions at each point; act_points does not reflect that
 		act_params = util.get_all_act_params(act_points)
@@ -126,6 +126,7 @@ class NavierEnv(gym.Env):
 		self.shape_mode = goal_field_gen is not None
 		self.sdf = None
 		self.sdf_rew = sdf_rew
+		self.rew_balancing = rew_balancing
 		self.init_gen = self.get_init_field_gen(init_field_gen)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim,
 			lambda s: s.density.data.reshape(goal_vis_shape), self.get_random_state, act_type, goal_type, 

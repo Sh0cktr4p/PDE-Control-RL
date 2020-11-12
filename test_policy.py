@@ -11,10 +11,11 @@ def test_policy(sim_name='burger', key='00', itr='last', label=''):
 	env = gym.make(name)
 	run_policy(env, get_action, num_episodes=15)
 
-#test_policy('burger', '108', 400, 'upkeep')
+#test_policy('burger', '108', 600, 'fixed_unet')
 #test_policy('burger', '109', 750, 'fixed_old_unet')
 #test_policy('burger', '110', 800, 'old_unet')
-test_policy('burger', '112', 200, 'why')
+#test_policy('burger', '111', 800, 'pow')
+test_policy('burger', '113', 600, 'old_unet')
 
 #test_policy('navier', '306', 99, 'unet')
 #test_policy('navier', '309', 200, 'fixed_old_unet')

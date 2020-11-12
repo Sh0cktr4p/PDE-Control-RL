@@ -4,3 +4,6 @@
         opposite sides of the corresponding target field values
     => Could smooth out with longer training
     => Network seems able to comprehend the goal
+-Rewards still increase after 800 epochs, sometimes large dips in 
+        performance
+    => Probably exploration by the network

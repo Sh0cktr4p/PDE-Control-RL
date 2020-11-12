@@ -151,3 +151,9 @@ class BurgerEnvContCompleteGaussPerfectFit(BurgerEnv):
 		super().__init__(name='v112', act_type=util.ActionType.CONTINUOUS, 
 			act_points=complete32, goal_type=util.GoalType.GAUSS_FORCE, 
 			rew_type=util.RewardType.FIN_APPR, enf_perfect_fit=True)
+
+class BurgerEnvContCompleteConstantPerfectFit(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v113', act_type=util.ActionType.CONTINUOUS,
+			act_points=complete32, goal_type=util.GoalType.CONSTANT_FORCE,
+			rew_type=util.RewardType.FIN_APPR, enf_perfect_fit=True)

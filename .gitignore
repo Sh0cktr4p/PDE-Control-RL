@@ -5,3 +5,4 @@ output_old/
 gym_foo.egg-info
 *.pyc
 .vscode/
+*.directory/

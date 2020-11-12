@@ -1,0 +1,7 @@
+ 
+-Converges relatively quickly
+    => Only marginal progress after the first 380 epochs
+-Relatively accurate approximation of the target field
+    => Sometimes apparently overshooting
+    => Some other times not completely reaching target
+-relatively smooth transitions

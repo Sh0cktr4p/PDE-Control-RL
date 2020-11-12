@@ -29,6 +29,7 @@ exp_map = {
 	'110': 'cont_complete_gauss_pow',
 	'111': 'cont_complete_gauss_fin_balanced',
 	'112': 'cont_complete_gauss_perfect_fit',
+	'113': 'cont_complete_constant_perfect_fit',
 	'300': 'cont_complete_constant_2D_shapes_obs',
 	'301': 'cont_complete_constant_2D_shapes_obs_fin',
 	'302': 'cont_complete_2D_shapes_obs_sdf',

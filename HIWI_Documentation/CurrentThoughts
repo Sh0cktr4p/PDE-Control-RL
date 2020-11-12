@@ -80,6 +80,7 @@ Further reading:
     What exactly is a differential solver doing, how does it extend over
         multiple time steps?
     How does the critic work exactly in RL?
+    Batch Norm in PyTorch, how could it be applied to PPO RL with SpinningUp
     
     
             

@@ -35,4 +35,4 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 
 
 #run_experiment('burger', '110', 2000, 200, label="old_unet")
-run_experiment('burger', '112', 2000, 200, label='why')
+run_experiment('burger', '113', 2000, 200, label='old_unet')
