@@ -99,4 +99,5 @@ def get_random_sdf_field(field_shape, shape_list=shapes, squared=False):
 
 def to_density_field(sdf_field, total_density):
 	density = np.where(np.abs(sdf_field) < 0.001, 1, 0)
-	return density * total_density / np.sum(density)
+	density_sum = np.sum(density)
+	return density * total_density / density_sum, (density.size / density_sum) ** density

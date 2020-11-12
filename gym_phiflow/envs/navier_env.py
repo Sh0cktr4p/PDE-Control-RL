@@ -143,6 +143,7 @@ class NavierEnv(gym.Env):
 		self.fviz = None
 		self.force_collector = None
 		self.test_mode = False
+		self.rew_balance_factors = None
 
 		sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.1)))
 		sim_in_ph = self.init_gen().copied_with(density=phiflow.placeholder, velocity=phiflow.placeholder)
@@ -168,8 +169,9 @@ class NavierEnv(gym.Env):
 
 		if self.shape_mode:
 			self.sdf = self.goal_obs
-			self.goal_obs = shape_field.to_density_field(self.goal_obs, self.den_scale)
-			
+			self.goal_obs, self.rew_balance_factors = shape_field.to_density_field(self.goal_obs, self.den_scale)
+			print(self.rew_balance_factors)
+
 		self.step_idx = 0
 
 		return self.combine_to_obs(self.cont_state, self.goal_obs)
@@ -201,6 +203,10 @@ class NavierEnv(gym.Env):
 		else:
 			err_old = self.goal_obs - old_obs
 			err_new = self.goal_obs - new_obs
+
+			if self.rew_balancing:
+				err_old *= rew_balance_factors
+				err_new *= rew_balance_factors
 
 		obs = self.combine_to_obs(self.cont_state, self.goal_obs)
 		done = self.step_idx == self.epis_len

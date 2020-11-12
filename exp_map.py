@@ -44,4 +44,5 @@ exp_map = {
 	'311': 'everything_2D_shapes_obs_sq_smoothed_simple',
 	'312': 'everything_2D_shapes_obs_sq_smoothed_cheap',
 	'313': 'everything_2D_shapes_obs_sdf_smoothed',
+	'314': 'everything_2D_shapes_obs_balanced',
 }
