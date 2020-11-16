@@ -227,5 +227,5 @@ register(
 
 register(
     id='navier-v314',
-    entry_point='gym_phiflow.envs:NavierEnvEverything2DShapesObsSDFSmoothed'
+    entry_point='gym_phiflow.envs:NavierEnvEverything2DShapesObsBalanced'
 )

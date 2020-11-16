@@ -28,7 +28,6 @@ def get_vis_extractor(all_visible):
 		return lambda s: stack_fields(s)
 	else:
 		return lambda s: np.squeeze(pad_to_staggered_size(s.density.data), axis=0)
-		#return lambda s: np.squeeze(s.density.data, axis=0)
 
 
 def pad_to_shape(field, shape):
@@ -72,7 +71,7 @@ class NavierEnv(gym.Env):
 
 	def get_init_field_gen(self, init_field_gen):
 		if init_field_gen:
-			return lambda: self.get_state_with(shape_field.to_density_field(init_field_gen(), self.den_scale))
+			return lambda: self.get_state_with(shape_field.to_density_field(init_field_gen(), self.den_scale)[0])
 		else:
 			return self.get_random_state
 
@@ -170,7 +169,6 @@ class NavierEnv(gym.Env):
 		if self.shape_mode:
 			self.sdf = self.goal_obs
 			self.goal_obs, self.rew_balance_factors = shape_field.to_density_field(self.goal_obs, self.den_scale)
-			print(self.rew_balance_factors)
 
 		self.step_idx = 0
 
@@ -205,8 +203,8 @@ class NavierEnv(gym.Env):
 			err_new = self.goal_obs - new_obs
 
 			if self.rew_balancing:
-				err_old *= rew_balance_factors
-				err_new *= rew_balance_factors
+				err_old *= self.rew_balance_factors
+				err_new *= self.rew_balance_factors
 
 		obs = self.combine_to_obs(self.cont_state, self.goal_obs)
 		done = self.step_idx == self.epis_len

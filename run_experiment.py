@@ -17,7 +17,7 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 
 	env_fn = lambda: gym.make(name)
 
-	ac_kwargs = dict(hidden_sizes=[8, 8], activation=torch.nn.ReLU, network=actor_critic.UNET)
+	ac_kwargs = dict(hidden_sizes=[8, 8, 8], activation=torch.nn.ReLU, network=actor_critic.MOD_UNET)
 
 	logger_kwargs = dict(output_dir=path, exp_name=sim_name)
 
@@ -35,4 +35,4 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 
 
 #run_experiment('burger', '110', 2000, 200, label="old_unet")
-run_experiment('burger', '113', 2000, 200, label='old_unet')
+run_experiment('navier', '314', 2000, 100, label='mod_unet')

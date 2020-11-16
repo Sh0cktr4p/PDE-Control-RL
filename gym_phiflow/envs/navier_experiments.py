@@ -164,7 +164,7 @@ class NavierEnvEverything2DShapesObsBalanced(NavierEnv):
 	def __init__(self):
 		super().__init__(name='v314', act_type=util.ActionType.CONTINUOUS, 
 			act_points=complete256, goal_type=util.GoalType.PREDEFINED,
-			rew_type=util.RewardType.ABSOLUTE,
-			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), squared=False).reshape(1, 15, 15, 1),
-			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), squared=False).reshape(1, 15, 15, 1),
+			rew_type=util.RewardType.ABSOLUTE, 
+			init_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), shape_field.shapes_basic_big, squared=False).reshape(1, 15, 15, 1),
+			goal_field_gen=lambda: shape_field.get_random_sdf_field((15, 15), shape_field.shapes_basic_big, squared=False).reshape(1, 15, 15, 1),
 			all_visible=True, rew_balancing=True)

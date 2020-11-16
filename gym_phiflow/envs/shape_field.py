@@ -87,6 +87,8 @@ class Diamond(Shape):
 
 shapes_basic = [Rect(2, 2)]
 
+shapes_basic_big = [Rect(6, 6)]
+
 shapes = [Rect(3, 3), Rect(3, 4), Rect(4, 3), Rect(5, 2), Rect(2, 5), Rect(6, 2), Rect(2, 6),
 		Diamond(4), Diamond(5), Diamond(6)]
 

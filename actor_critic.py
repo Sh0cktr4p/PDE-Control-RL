@@ -296,15 +296,20 @@ class MOD_UNET(torch.nn.Module):
 		num_levels = len(sizes)
 
 		input_channels = input_shape[-1]
+		output_channels = max(1, output_dim // np.prod(input_shape[:-1]))
 
 		input_dim = len(input_shape) - 1
 
 		if input_dim == 1:
 			conv = torch.nn.Conv1d
 			pad = OneSidedPadding1D
+			perm_fwd = Permute([0, 2, 1])
+			perm_bwd = Permute([0, 2, 1])
 		elif input_dim == 2:
 			conv = torch.nn.Conv2d
 			pad = OneSidedPadding2D
+			perm_fwd = Permute([0, 3, 1, 2])
+			perm_bwd = Permute([0, 2, 3, 1])
 		else:
 			raise NotImplementedError()
 
@@ -326,25 +331,23 @@ class MOD_UNET(torch.nn.Module):
 			f_enc_in = fcs[i+1]
 			f_enc_out = fcs[i]
 			f_dec_in = fcs[0] if i == 0 else 16
-			f_dec_out = 1 if i == num_levels - 1 else 16
+			f_dec_out = output_channels if i == num_levels - 1 else 16
 			print("%2i -> %2i   %2i -> %2i" % (f_enc_in, f_enc_in, f_enc_in, f_dec_out))
 			print("       |     %2i      " % (f_dec_in))
 			print("       |      |      ")
 			print("      %2i -> %2i      \n" % (f_enc_out, f_dec_in))
 			self.net = UnetLayer(f_enc_in, f_enc_out, f_dec_in, f_dec_out, self.net, conv, pad, activation)
 
+		self.net = torch.nn.Sequential(perm_fwd, self.net, perm_bwd, torch.nn.Flatten())
+
 		if output_dim == 1:
-			self.appendix = torch.nn.Linear(np.prod(input_shape[:-1]), output_dim)
+			self.appendix = torch.nn.Sequential(torch.nn.Linear(np.prod(input_shape[:-1]), output_dim))
 		else:
 			self.appendix = torch.nn.Identity()
 
 	def forward(self, x):
-		if len(x.shape) == 3:
-			x = x.permute(0, 2, 1)
-		elif len(x.shape) == 4:
-			x = x.permute(0, 3, 1, 2)
-
-		return self.appendix(self.net(x))
+		result = self.appendix(self.net(x))
+		return result
 
 
 class FCN(torch.nn.Module):
