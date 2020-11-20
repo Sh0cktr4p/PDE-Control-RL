@@ -7,17 +7,32 @@ from exp_map import exp_map
 import time
 import datetime
 import actor_critic
+import os
+
+
+def assemble_path(sim_name, key, label, index):
+	return 'output/%s/%s/%s_%02i' % (sim_name, key, label, index)
+
+def get_path(sim_name, key, label):
+	index = 0
+
+	while os.path.isdir(assemble_path(sim_name, key, label, index)):
+		index += 1
+	
+	return assemble_path(sim_name, key, label, index)
 
 def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=''):
-	if label != '' and label[0] != '_':
-		label = '_' + label
+	env_name = 'gym_phiflow:%s-v%s' % (sim_name, key)
 	
-	name = 'gym_phiflow:%s-v%s' % (sim_name, key)
-	path = 'output/%s/%s/%s' % (sim_name, exp_map[key], label)
+	path = get_path(sim_name, key, label)
 
-	env_fn = lambda: gym.make(name)
+	env_fn = lambda: gym.make(env_name)
 
-	ac_kwargs = dict(hidden_sizes=[8, 8, 8], activation=torch.nn.ReLU, network=actor_critic.MOD_UNET)
+	ac_kwargs = dict(
+		activation=torch.nn.ReLU, device='cuda',
+		pi_hidden_sizes=[16, 16, 16, 8, 4], pi_network=actor_critic.MOD_UNET, 
+		vf_hidden_sizes=[70, 60, 50], vf_network=actor_critic.FCN
+	)
 
 	logger_kwargs = dict(output_dir=path, exp_name=sim_name)
 
@@ -34,5 +49,5 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 		file.write(time_msg)
 
 
-#run_experiment('burger', '110', 2000, 200, label="old_unet")
-run_experiment('navier', '314', 2000, 100, label='mod_unet')
+run_experiment('burger', '112', 2000, 200, label="phillips_unet")
+#run_experiment('navier', '314', 2000, 100, label='mod_unet')

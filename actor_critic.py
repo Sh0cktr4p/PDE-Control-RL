@@ -232,41 +232,59 @@ class EncoderResBlock(torch.nn.Module):
 	def forward(self, x):
 		return self.enc_res_block(x)
 
-class OneSidedPadding1D(torch.nn.Module):
-	def __init__(self, mode='constant'):
+class OneSidedPadding1d(torch.nn.Module):
+	def __init__(self, amount=1, mode='constant'):
 		super().__init__()
 		self.mode = mode
+		self.amount = amount
 
 	def forward(self, x):
-		return torch.nn.functional.pad(x, (0, 1), mode=self.mode)
+		return torch.nn.functional.pad(x, (0, self.amount), mode=self.mode)
 
-class OneSidedPadding2D(torch.nn.Module):
-	def __init__(self, mode='constant'):
+class OneSidedPadding2d(torch.nn.Module):
+	def __init__(self,amount=1, mode='constant'):
 		super().__init__()
 		self.mode = mode
+		self.amount = amount
 
 	def forward(self, x):
-		return torch.nn.functional.pad(x, (0, 1, 0, 1), mode=self.mode)
+		return torch.nn.functional.pad(x, (0, self.amount, 0, self.amount), mode=self.mode)
 
 class DecoderCombiner(torch.nn.Module):
-	def __init__(self, fi, fa, fo, conv, pad, act):
+	def __init__(self, fi, fa, fo, conv, pad, act, upsample_mode, rows_to_shave):
 		super().__init__()
-		self.upsampler = torch.nn.Upsample(scale_factor=2, mode='bilinear')
+		self.upsampler = torch.nn.Upsample(scale_factor=2, mode=upsample_mode)
+		self.shaver = pad(amount=-1 * rows_to_shave)	# 'No resampling, just shave off the top rows'
 		self.net = torch.nn.Sequential(
-			pad(),
+			pad(),										# Ok I guess
 			conv(fi + fa, fo, 2, 1, 0),
 			act(),
 		)
 
 	def forward(self, x, l):
 		x = self.upsampler(x)
+		l = self.shaver(l)
 		x = torch.cat((x, l), 1)
 		return self.net(x)
 
-class DecoderResBlock(torch.nn.Module):
-	def __init__(self, fi, fa, fo, conv, pad, act):
+
+class DecoderWithoutCombiningAction(torch.nn.Module):
+	def __init__(self, fi, fo, conv, pad, act, upsample_mode):
 		super().__init__()
-		self.combiner = DecoderCombiner(fi, fa, fo, conv, pad, act)
+		self.net = torch.nn.Sequential(
+			torch.nn.Upsample(scale_factor=2, mode=upsample_mode),
+			pad(amount=1),
+			conv(fi, fo, 2, 1, 0),
+			act()
+		)
+
+	def forward(self, x):
+		return self.net(x)
+
+class DecoderResBlock(torch.nn.Module):
+	def __init__(self, fi, fa, fo, conv, pad, act, upsample_mode, rows_to_shave):
+		super().__init__()
+		self.combiner = DecoderCombiner(fi, fa, fo, conv, pad, act, upsample_mode, rows_to_shave)
 		self.dec_res_blocks = torch.nn.Sequential(
 			ResBlock(fo, 3, 1, 1, conv, act),
 			ResBlock(fo, 3, 1, 1, conv, act)
@@ -278,16 +296,17 @@ class DecoderResBlock(torch.nn.Module):
 
 
 class UnetLayer(torch.nn.Module):
-	def __init__(self, f_enc_in, f_enc_out, f_dec_in, f_dec_out, inner_net, conv, pad, act):
+	def __init__(self, f_enc_in, f_enc_out, f_dec_in, f_dec_out, inner_net, conv, pad, act, upsample_mode, rows_to_shave):
 		super().__init__()
 		self.encoder = EncoderResBlock(f_enc_in, f_enc_out, conv, act)
 		self.inner_net = inner_net
-		self.decoder = DecoderResBlock(f_dec_in, f_enc_in, f_dec_out, conv, pad, act)
+		self.decoder = DecoderResBlock(f_dec_in, f_enc_in, f_dec_out, conv, pad, act, upsample_mode, rows_to_shave)
 
 	def forward(self, x):
 		y = self.encoder(x)
 		y = self.inner_net(y)
-		return self.decoder(y, x)
+		y = self.decoder(y, x)
+		return y
 
 
 class MOD_UNET(torch.nn.Module):
@@ -296,20 +315,24 @@ class MOD_UNET(torch.nn.Module):
 		num_levels = len(sizes)
 
 		input_channels = input_shape[-1]
+		pad_width = sum([2**i for i in range(num_levels)])
+
 		output_channels = max(1, output_dim // np.prod(input_shape[:-1]))
 
 		input_dim = len(input_shape) - 1
 
 		if input_dim == 1:
 			conv = torch.nn.Conv1d
-			pad = OneSidedPadding1D
+			pad = OneSidedPadding1d
 			perm_fwd = Permute([0, 2, 1])
 			perm_bwd = Permute([0, 2, 1])
+			upsample_mode = 'linear'
 		elif input_dim == 2:
 			conv = torch.nn.Conv2d
-			pad = OneSidedPadding2D
+			pad = OneSidedPadding2d
 			perm_fwd = Permute([0, 3, 1, 2])
 			perm_bwd = Permute([0, 2, 3, 1])
+			upsample_mode = 'bilinear'
 		else:
 			raise NotImplementedError()
 
@@ -327,27 +350,36 @@ class MOD_UNET(torch.nn.Module):
 			ResBlock(fcs[0], 3, 1, 1, conv, activation),
 		)
 
-		for i in range(num_levels):
+		rows_to_shave = 0
+		for i in range(num_levels - 1):
 			f_enc_in = fcs[i+1]
 			f_enc_out = fcs[i]
 			f_dec_in = fcs[0] if i == 0 else 16
-			f_dec_out = output_channels if i == num_levels - 1 else 16
+			f_dec_out = 16
 			print("%2i -> %2i   %2i -> %2i" % (f_enc_in, f_enc_in, f_enc_in, f_dec_out))
 			print("       |     %2i      " % (f_dec_in))
 			print("       |      |      ")
 			print("      %2i -> %2i      \n" % (f_enc_out, f_dec_in))
-			self.net = UnetLayer(f_enc_in, f_enc_out, f_dec_in, f_dec_out, self.net, conv, pad, activation)
+			rows_to_shave += 2 ** i
+			print('Rows to shave: %i' % rows_to_shave)
+			self.net = UnetLayer(f_enc_in, f_enc_out, f_dec_in, f_dec_out, self.net, conv, pad, activation, upsample_mode, rows_to_shave)
 
-		self.net = torch.nn.Sequential(perm_fwd, self.net, perm_bwd, torch.nn.Flatten())
+		print('pad width: %i' % pad_width)
+		#rows_to_shave += 2 ** (num_levels - 1)
+		# Outermost layer has no skip connection and a shorter decoder
+		self.net = torch.nn.Sequential(EncoderResBlock(fcs[-1], fcs[-2], conv, activation), self.net, DecoderWithoutCombiningAction(16, output_channels, conv, pad, activation, upsample_mode))
+
+		self.net = torch.nn.Sequential(perm_fwd, pad(amount=pad_width), self.net, perm_bwd, torch.nn.Flatten())
 
 		if output_dim == 1:
-			self.appendix = torch.nn.Sequential(torch.nn.Linear(np.prod(input_shape[:-1]), output_dim))
+			self.appendix = torch.nn.Linear(np.prod(input_shape[:-1]), output_dim)
 		else:
 			self.appendix = torch.nn.Identity()
 
 	def forward(self, x):
-		result = self.appendix(self.net(x))
-		return result
+		x = self.net(x)
+		x = self.appendix(x)
+		return x
 
 
 class FCN(torch.nn.Module):
@@ -370,12 +402,13 @@ class FCN(torch.nn.Module):
 
 class MLPCategoricalActor(core.Actor):
 
-	def __init__(self, obs_shape, act_dim, hidden_sizes, activation, network):
+	def __init__(self, obs_shape, act_dim, hidden_sizes, activation, network, device):
 		super().__init__()
-		self.logits_net = network(obs_shape, act_dim, list(hidden_sizes), activation).to('cuda')
+		self.logits_net = network(obs_shape, act_dim, list(hidden_sizes), activation).to(device)
+		self.device = device
 
 	def _distribution(self, obs):
-		logits = self.logits_net(obs.to('cuda')).to('cpu')
+		logits = self.logits_net(obs.to(self.device)).to('cpu')
 		return core.Categorical(logits=logits)
 
 	def _log_prob_from_distribution(self, pi, act):
@@ -384,14 +417,15 @@ class MLPCategoricalActor(core.Actor):
 
 class MLPGaussianActor(core.Actor):
 
-	def __init__(self, obs_shape, act_dim, hidden_sizes, activation, network):
+	def __init__(self, obs_shape, act_dim, hidden_sizes, activation, network, device):
 		super().__init__()
 		log_std = -0.5 * np.ones(act_dim, dtype=np.float32)
 		self.log_std = torch.nn.Parameter(torch.as_tensor(log_std))
-		self.mu_net = network(obs_shape, act_dim, list(hidden_sizes), activation).to('cuda')
+		self.mu_net = network(obs_shape, act_dim, list(hidden_sizes), activation).to(device)
+		self.device = device
 
 	def _distribution(self, obs):
-		mu = self.mu_net(obs.to('cuda')).to('cpu')
+		mu = self.mu_net(obs.to(self.device)).to('cpu')
 		std = torch.exp(self.log_std)
 		return core.Normal(mu, std)
 
@@ -401,32 +435,33 @@ class MLPGaussianActor(core.Actor):
 
 class MLPCritic(torch.nn.Module):
 
-	def __init__(self, obs_shape, hidden_sizes, activation, network):
+	def __init__(self, obs_shape, hidden_sizes, activation, network, device):
 		super().__init__()
-		self.v_net = network(obs_shape, 1, list(hidden_sizes), activation).to('cuda')
+		self.v_net = network(obs_shape, 1, list(hidden_sizes), activation).to(device)
+		self.device = device
 
 	def forward(self, obs):
-		return torch.squeeze(self.v_net(obs.to('cuda')).to('cpu'), -1) # Critical to ensure v has right shape.
+		return torch.squeeze(self.v_net(obs.to(self.device)).to('cpu'), -1) # Critical to ensure v has right shape.
 
 
 
 class MLPActorCritic(torch.nn.Module):
 
 	def __init__(self, observation_space, action_space, 
-				 hidden_sizes=(64,64), activation=torch.nn.Tanh, 
-				 network=FCN):
+				 pi_hidden_sizes=(64,64), vf_hidden_sizes=(64, 64), activation=torch.nn.Tanh, 
+				 pi_network=FCN, vf_network=FCN, device='cpu'):
 		super().__init__()
 
 		obs_shape = observation_space.shape
 
 		# policy builder depends on action space
 		if isinstance(action_space, core.Box):
-			self.pi = MLPGaussianActor(obs_shape, action_space.shape[0], hidden_sizes, activation, network)
+			self.pi = MLPGaussianActor(obs_shape, action_space.shape[0], pi_hidden_sizes, activation, pi_network, device)
 		elif isinstance(action_space, core.Discrete):
-			self.pi = MLPCategoricalActor(obs_shape, action_space.n, hidden_sizes, activation, network)
+			self.pi = MLPCategoricalActor(obs_shape, action_space.n, pi_hidden_sizes, activation, pi_network, device)
 
 		# build value function
-		self.v  = MLPCritic(obs_shape, hidden_sizes, activation, network)
+		self.v  = MLPCritic(obs_shape, vf_hidden_sizes, activation, vf_network, device)
 
 	def step(self, obs):
 		obs = torch.as_tensor(np.expand_dims(obs.numpy(), 0))

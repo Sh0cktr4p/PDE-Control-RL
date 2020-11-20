@@ -75,6 +75,11 @@ Navier-Stokes equations:
         => Sources/Targets in single grid cell
         => Sources/Targets each one half/one third etc of the field
     Try resampling the velocity fields with velocity_field.at(domain) instead of padding and stacking
+    Curiosity
+        => Agent fails to explore efficiently
+        => Might counteract reward sparsity
+        => Might counteract demotivation because of force penalty
+
             
 Further reading:
     What exactly is a differential solver doing, how does it extend over
