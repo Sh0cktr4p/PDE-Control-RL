@@ -75,3 +75,20 @@ Experiment 7:
     -equivalent to experiment 6, but with the old experiment setup
             where forces were equal across the field
             
+            
+-Use Philipp's version of U-Net to make more expressive comparisons
+        to the supervised method
+-Allow to define different architectures for actor and critic networks
+        
+Experiment 8:
+    -5 levels with 4, 8, 16, 16, 16 filters
+    -Pi learning rates: 1e-3, 1e-4, 
+    
+Experiment 9:
+    -Try to reduce the bottleneck
+    -5 levels with 8, 8, 16, 16, 16 filters
+    - Pi lr: 2e-4
+    
+Experiment 10:
+    -Try to reduce network length
+    

@@ -3,8 +3,6 @@ import gym
 from exp_map import exp_map
 
 def test_policy(sim_name='burger', key='00', itr='last', label=''):
-	if label != '' and label[0] != '_':
-		label = '_' + label
 	name = 'gym_phiflow:%s-v%s' % (sim_name, key)
 	path = 'output/%s/%s/%s' % (sim_name, exp_map[key], label)
 	_, get_action = load_policy_and_env(path, itr)
@@ -15,7 +13,7 @@ def test_policy(sim_name='burger', key='00', itr='last', label=''):
 #test_policy('burger', '109', 750, 'fixed_old_unet')
 #test_policy('burger', '110', 800, 'old_unet')
 #test_policy('burger', '111', 800, 'pow')
-test_policy('burger', '112', 200, 'phillips_unet')
+test_policy('burger', '112', 300, 'phillips_unet_02')
 
 #test_policy('navier', '306', 99, 'unet')
 #test_policy('navier', '309', 200, 'fixed_old_unet')

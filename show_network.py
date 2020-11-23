@@ -14,7 +14,7 @@ network = actor_critic.MOD_UNET((128, 128, 4), 32, [16, 16, 16, 8, 4], torch.nn.
 
 input_tensor = torch.zeros(1, 128, 128, 4, dtype=torch.float, requires_grad=False)
 
-writer.add_graph(network, input_tensor)
+writer.add_graph(network, input_tensor, verbose=True)
 #writer.add_graph(network, torch.rand(3200, 8, 32, 32))
 writer.flush()
 
