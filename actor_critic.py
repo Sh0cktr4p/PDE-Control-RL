@@ -1,6 +1,6 @@
 from spinup.algos.pytorch.ppo import core
+from gym_phiflow.envs import networks
 import torch
-import networks
 import numpy as np
 
 

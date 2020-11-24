@@ -1,10 +1,11 @@
-from gym_phiflow.envs import util, visualization, shape_field
+from gym_phiflow.envs import util, visualization, shape_field, curiosity, networks
 import phi.tf.flow as phiflow
 import gym
 import phi.tf.tf_cuda_pressuresolver
 import numpy as np
 import time
 import tensorflow as tf
+import torch
 
 
 default_act_points = util.act_points((16,), 0)
@@ -89,8 +90,9 @@ class NavierEnv(gym.Env):
 
 	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, 
 			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, 
-			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, loss_fn=util.l2_loss,
-			synchronized=False, init_field_gen=None, goal_field_gen=None, all_visible=False, sdf_rew=False, rew_balancing=False):
+			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, loss_fn=util.l2_loss, 
+			use_intrinsic_reward=False, intr_extr_balance=1, synchronized=False, init_field_gen=None, goal_field_gen=None, 
+			all_visible=False, sdf_rew=False, rew_balancing=False):
 		act_points = np.squeeze(act_points)
 		# Multi-dimensional fields have parameters for each of these directions at each point; act_points does not reflect that
 		act_params = util.get_all_act_params(act_points)
@@ -143,6 +145,10 @@ class NavierEnv(gym.Env):
 		self.force_collector = None
 		self.test_mode = False
 		self.rew_balance_factors = None
+		self.curiosity = None
+
+		if use_intrinsic_reward:
+			self.curiosity = curiosity.Curiosity(networks.ALT_UNET, [4, 8, 16, 16, 16], torch.nn.ReLU)
 
 		sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.1)))
 		sim_in_ph = self.init_gen().copied_with(density=phiflow.placeholder, velocity=phiflow.placeholder)

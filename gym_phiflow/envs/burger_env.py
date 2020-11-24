@@ -55,7 +55,7 @@ class BurgerEnv(gym.Env):
 	def __init__(self, epis_len=32, dt=0.03, vel_scale=1.0,
 			name='v0', act_type=util.ActionType.DISCRETE_2, loss_fn=util.l2_loss,
 			act_points=default_act_points, goal_type=util.GoalType.ZERO, enf_perfect_fit=False,
-			rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, synchronized=False):
+			rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, rew_curiosity_factor=1, synchronized=False):
 		act_params = util.get_all_act_params(act_points)	# Important for multi-dimensional cases
 		act_dim = 1 if synchronized else np.sum(act_params)
 		
@@ -134,7 +134,7 @@ class BurgerEnv(gym.Env):
 		err_old = self.goal_obs - v_old
 		err_new = self.goal_obs - v_new
 
-		obs = self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx)
+		obs = self.obs_gen(v_new, self.goal_obs, self.step_idx)
 		done = self.step_idx == self.epis_len
 		reward = self.rew_gen(err_old, err_new, forces, done)
 

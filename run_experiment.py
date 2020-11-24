@@ -1,5 +1,6 @@
 import spinup
 from spinup import ppo_tf1, ppo_pytorch
+from gym_phiflow.envs import networks
 import tensorflow as tf
 import torch
 import gym
@@ -7,7 +8,6 @@ from exp_map import exp_map
 import time
 import datetime
 import actor_critic
-import networks
 import os
 
 
