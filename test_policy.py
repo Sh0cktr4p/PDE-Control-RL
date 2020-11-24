@@ -13,7 +13,7 @@ def test_policy(sim_name='burger', key='00', itr='last', label=''):
 #test_policy('burger', '109', 750, 'fixed_old_unet')
 #test_policy('burger', '110', 800, 'old_unet')
 #test_policy('burger', '111', 800, 'pow')
-test_policy('burger', '112', 300, 'phillips_unet_02')
+test_policy('burger', '112', 299, 'phillips_unet_cleaned_up_01')
 
 #test_policy('navier', '306', 99, 'unet')
 #test_policy('navier', '309', 200, 'fixed_old_unet')

@@ -90,5 +90,13 @@ Experiment 9:
     - Pi lr: 2e-4
     
 Experiment 10:
-    -Try to reduce network length
+    -New implementation that is actually working
+    -Pi lr: 1e-5
+    -Epoch length: 6400 steps
+    -300 epochs
+    
+Experiment 11:
+    -Pi lr: 1e-5
+    -Epoch length: 3200 steps
+    
     

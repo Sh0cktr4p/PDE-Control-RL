@@ -1,5 +1,6 @@
 from spinup.algos.pytorch.ppo import core
 import torch
+import networks
 import numpy as np
 
 
@@ -53,7 +54,7 @@ class MLPActorCritic(torch.nn.Module):
 
 	def __init__(self, observation_space, action_space, 
 				 pi_hidden_sizes=(64,64), vf_hidden_sizes=(64, 64), activation=torch.nn.Tanh, 
-				 pi_network=FCN, vf_network=FCN, device='cpu'):
+				 pi_network=networks.FCN, vf_network=networks.FCN, device='cpu'):
 		super().__init__()
 
 		obs_shape = observation_space.shape

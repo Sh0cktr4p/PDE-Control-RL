@@ -55,6 +55,114 @@ class CNN(torch.nn.Module):
 		return self.seq(x.permute(0, 3, 1, 2))
 
 
+class CNN_FUNNEL(torch.nn.Module):
+	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
+		super().__init__()
+
+		input_dim = len(input_shape) - 1
+
+		if input_dim == 1:
+			conv = torch.nn.Conv1d
+			pool = torch.nn.MaxPool1d
+			pad = OneSidedPadding1d
+			perm = Permute([0, 2, 1])
+		elif input_dim == 2:
+			assert input_shape[0] == input_shape[1]
+			conv = torch.nn.Conv2d
+			pool = torch.nn.MaxPool2d
+			pad = OneSidedPadding2d
+			perm = Permute([0, 3, 1, 2])
+
+		input_width = input_shape[0]
+
+		num_levels = 0
+
+		while 2 ** num_levels < input_width:
+			num_levels += 1
+
+		assert len(sizes) == num_levels
+
+		filter_counts = [input_shape[-1]] + sizes
+
+		pad_width = 2 ** num_levels - input_width
+		layers = [
+			perm,
+			pad(amount=pad_width, mode='constant'),
+		]
+
+		for i in range(num_levels):
+			layers += [
+				conv(filter_counts[i], filter_counts[i+1], 3, 1, 1),
+				activation(),
+				pool(2),
+			]
+
+		layers += [
+			conv(filter_counts[-1], output_dim, 1, 1, 0),
+			output_activation(),
+			torch.nn.Flatten(),
+		]
+
+		self.net = torch.nn.Sequential(*layers)
+
+	def forward(self, x):
+		return self.net(x)
+
+
+class RES_FUNNEL(torch.nn.Module):
+	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
+		super().__init__()
+
+		input_dim = len(input_shape) - 1
+
+		if input_dim == 1:
+			res_block = ResBlock1d
+			conv = torch.nn.Conv1d
+			pad = OneSidedPadding1d
+			perm = Permute([0, 2, 1])
+		elif input_dim == 2:
+			assert input_shape[0] == input_shape[1]
+			res_block = ResBlock2d
+			conv = torch.nn.Conv2d
+			pad = OneSidedPadding2d
+			perm = Permute([0, 3, 1, 2])
+
+		input_width = input_shape[0]
+
+		num_levels = 0
+
+		while 2 ** num_levels < input_width:
+			num_levels += 1
+
+		assert len(sizes) == num_levels
+
+		filter_counts = sizes + [output_dim]
+
+		pad_width = 2 ** num_levels - input_width
+		layers = [
+			perm,
+			pad(amount=pad_width, mode='constant'),
+		]
+
+		for i in range(num_levels):
+			layers += [
+				conv(filter_counts[i], filter_counts[i+1], 2, 2, 0),
+				activation(),
+				res_block(filter_counts[i+1], 3, 1, 1, activation),
+				res_block(filter_counts[i+1], 3, 1, 1, activation),
+			]
+
+		layers += [
+			output_activation(),
+			torch.nn.Flatten(),
+		]
+
+		self.net = torch.nn.Sequential(*layers)
+
+	def forward(self, x):
+		return self.net(x)
+
+
 class UNET(torch.nn.Module):
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
@@ -149,11 +257,6 @@ class UNET(torch.nn.Module):
 	def forward(self, x):
 		block_outputs = []
 
-		#if len(x.shape) == 3:
-		#	x = x.permute(0, 2, 1)
-		#elif len(x.shape) == 4:
-		#	x = x.permute(0, 3, 1, 2)
-
 		for i in range(len(self.blocks) // 2):
 			x = self.blocks[i](x)
 			block_outputs.append(x)
@@ -241,6 +344,110 @@ class MOD_UNET(torch.nn.Module):
 		return x
 
 
+class ALT_UNET(torch.nn.Module):
+	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
+		super().__init__()
+
+		# input_shape: (w, c) or (w, h, c)
+		input_dim = len(input_shape) - 1
+		
+		if input_dim == 1:
+			conv = torch.nn.Conv1d
+			pad = OneSidedPadding1d
+			res_block = ResBlock1d
+			perm_fwd = Permute([0, 2, 1])
+			perm_bwd = Permute([0, 2, 1])
+			upsample_mode = 'linear'
+		elif input_dim == 2:
+			conv = torch.nn.Conv2d
+			pad = OneSidedPadding2d
+			res_block = ResBlock2d
+			perm_fwd = Permute([0, 3, 1, 2])
+			perm_bwd = Permute([0, 2, 3, 1])
+			upsample_mode = 'bilinear'
+		else:
+			raise NotImplementedError()
+
+		self.num_levels = len(sizes)
+
+		input_channels = input_shape[-1]
+		pad_width = sum([2**i for i in range(self.num_levels)])
+
+		output_channels = max(1, output_dim // np.prod(input_shape[:-1]))   
+
+		filter_counts = [input_channels] + sizes
+
+		self.encoder_blocks = torch.nn.ModuleList()
+		self.decoder_blocks = torch.nn.ModuleList()
+
+		# Putting channels before spacial dimensions + initial padding
+		self.preprocess = torch.nn.Sequential(
+			perm_fwd,
+			pad(amount=pad_width),
+		)
+
+		# Encoder
+		for i in range(self.num_levels):
+			self.encoder_blocks.append(torch.nn.Sequential(
+				conv(filter_counts[i], filter_counts[i+1], 2, 2, 0),
+				activation(),
+				res_block(filter_counts[i+1], 3, 1, 1, activation),
+				res_block(filter_counts[i+1], 3, 1, 1, activation),
+			))
+
+		# Bottleneck
+		self.bottleneck = torch.nn.Sequential(
+			res_block(filter_counts[self.num_levels], 3, 1, 1, activation),
+			res_block(filter_counts[self.num_levels], 3, 1, 1, activation),
+			res_block(filter_counts[self.num_levels], 3, 1, 1, activation),
+			torch.nn.Upsample(scale_factor=2, mode=upsample_mode),
+		)
+
+		# Decoder
+		for i in range(self.num_levels)[::-1]:
+			if i > 0:
+				self.decoder_blocks.append(torch.nn.Sequential(
+					pad(1, 'constant'),
+					conv(filter_counts[i] + 16, 16, 2, 1, 0),
+					activation(),
+					res_block(16, 3, 1, 1, activation),
+					res_block(16, 3, 1, 1, activation),
+					torch.nn.Upsample(scale_factor=2, mode=upsample_mode),
+				))
+			else:
+				# Last decoder step
+				self.decoder_blocks.append(torch.nn.Sequential(
+					pad(1, 'constant'),
+					conv(filter_counts[0] + 16, output_channels, 2, 1, 0),
+					output_activation(),
+					perm_bwd,
+					torch.nn.Flatten(),
+				))
+
+		shave_amts = [2**(i+1) - 1 for i in range(self.num_levels)]
+
+		self.shavers = torch.nn.ModuleList([pad(-i, 'constant') for i in shave_amts])
+
+		print('Using U-Net with %d levels' % self.num_levels)
+
+	def forward(self, x):
+		y = self.preprocess(x)
+		res = [y]
+
+		for i in range(self.num_levels):
+			y = self.encoder_blocks[i](y)
+			res.insert(0, y)
+
+		y = self.bottleneck(y)
+
+		for i, res_data in enumerate(res[1:]):
+			res_in = self.shavers[i](res_data)
+			y = torch.cat((y, res_in), 1)
+			y = self.decoder_blocks[i](y)
+
+		return y
+
+
 class RNN(torch.nn.Module):
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
@@ -282,9 +489,36 @@ class RNN(torch.nn.Module):
 		return torch.zeros((1, 1, self.h_size), requires_grad=True)
 
 
+class ResBlock1d(torch.nn.Module):
+	def __init__(self, fc, ks, st, pd, act):
+		super().__init__()
+
+		self.res_block = torch.nn.Sequential(
+			torch.nn.Conv1d(fc, fc, ks, st, pd),
+			act(),
+			torch.nn.Conv1d(fc, fc, ks, st, pd)
+		)
+
+		self.final_act = act()
+
+	def forward(self, x):
+		return self.final_act(self.res_block(x) + x)
 
 
+class ResBlock2d(torch.nn.Module):
+	def __init__(self, fc, ks, st, pd, act):
+		super().__init__()
 
+		self.res_block = torch.nn.Sequential(
+			torch.nn.Conv2d(fc, fc, ks, st, pd),
+			act(),
+			torch.nn.Conv2d(fc, fc, ks, st, pd)
+		)
+
+		self.final_act = act()
+
+	def forward(self, x):
+		return self.final_act(self.res_block(x) + x)
 
 
 class ResBlock(torch.nn.Module):
