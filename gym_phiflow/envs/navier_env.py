@@ -1,4 +1,4 @@
-from gym_phiflow.envs import util, visualization, shape_field, curiosity, networks
+from gym_phiflow.envs import util, visualization, shape_field
 import phi.tf.flow as phiflow
 import gym
 import phi.tf.tf_cuda_pressuresolver
@@ -89,9 +89,9 @@ class NavierEnv(gym.Env):
 		#return self.physics.step(controlled_state, self.delta_time)
 
 	def __init__(self, epis_len=32, dt=0.5, den_scale=1.0, 
-			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, 
+			name='v0', act_type=util.ActionType.DISCRETE_2, act_points=default_act_points, use_time=False,
 			goal_type=util.GoalType.ZERO, rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, loss_fn=util.l2_loss, 
-			use_intrinsic_reward=False, intr_extr_balance=1, synchronized=False, init_field_gen=None, goal_field_gen=None, 
+			curiosity_module=None, intr_extr_balance=0, synchronized=False, init_field_gen=None, goal_field_gen=None, 
 			all_visible=False, sdf_rew=False, rew_balancing=False):
 		act_points = np.squeeze(act_points)
 		# Multi-dimensional fields have parameters for each of these directions at each point; act_points does not reflect that
@@ -120,7 +120,7 @@ class NavierEnv(gym.Env):
 		self.action_recorder = util.get_action_recorder(goal_type)
 
 		self.action_space = util.get_action_space(act_type, act_dim)
-		self.observation_space = util.get_observation_space(vis_shape, goal_type, 1)
+		self.observation_space = util.get_observation_space(vis_shape, goal_type, 1, use_time)
 
 		self.force_gen = util.get_force_gen(act_type, act_params, forces_shape, synchronized)
 		
@@ -133,7 +133,7 @@ class NavierEnv(gym.Env):
 			lambda s: s.density.data.reshape(goal_vis_shape), self.get_random_state, act_type, goal_type, 
 			goal_vis_shape, act_dim, epis_len, self.action_recorder, goal_field_gen)
 		self.vis_extractor = get_vis_extractor(all_visible)
-		self.obs_gen = util.get_obs_gen(goal_type, epis_len)
+		self.obs_gen = util.get_obs_gen(goal_type, epis_len, use_time)
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor, epis_len, loss_fn)
 		self.cont_state = None	# Controlled state
 		self.pass_state = None	# Passive state
@@ -146,9 +146,9 @@ class NavierEnv(gym.Env):
 		self.test_mode = False
 		self.rew_balance_factors = None
 		self.curiosity = None
-
-		if use_intrinsic_reward:
-			self.curiosity = curiosity.Curiosity(networks.ALT_UNET, [4, 8, 16, 16, 16], torch.nn.ReLU)
+		self.use_intrinsic_reward = use_intrinsic_reward
+		self.intr_extr_balance = intr_extr_balance
+		self.curiosity_module = curiosity_module
 
 		sess = tf.Session(config=tf.ConfigProto(gpu_options=tf.GPUOptions(per_process_gpu_memory_fraction=0.1)))
 		sim_in_ph = self.init_gen().copied_with(density=phiflow.placeholder, velocity=phiflow.placeholder)
@@ -215,6 +215,10 @@ class NavierEnv(gym.Env):
 		obs = self.combine_to_obs(self.cont_state, self.goal_obs)
 		done = self.step_idx == self.epis_len
 		reward = self.rew_gen(err_old, err_new, forces, done)
+
+		if self.curiosity_module != None:
+			intr_rew = self.curiosity_module.step(old_obs, new_obs, action)
+			reward = intr_rew * self.intr_extr_balance + reward * (1 - self.intr_extr_balance)
 
 		if done:
 			self.epis_idx += 1

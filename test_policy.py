@@ -7,13 +7,13 @@ def test_policy(sim_name='burger', key='00', itr='last', label=''):
 	path = 'output/%s/%s/%s' % (sim_name, exp_map[key], label)
 	_, get_action = load_policy_and_env(path, itr)
 	env = gym.make(name)
-	run_policy(env, get_action, num_episodes=15)
+	run_policy(env, get_action, num_episodes=100)
 
 #test_policy('burger', '108', 600, 'fixed_unet')
 #test_policy('burger', '109', 750, 'fixed_old_unet')
 #test_policy('burger', '110', 800, 'old_unet')
 #test_policy('burger', '111', 800, 'pow')
-test_policy('burger', '112', 299, 'phillips_unet_cleaned_up_01')
+test_policy('burger', '20', 751, 'benchmark_02')
 
 #test_policy('navier', '306', 99, 'unet')
 #test_policy('navier', '309', 200, 'fixed_old_unet')

@@ -16,6 +16,8 @@ exp_map = {
 	'14': 'cont_complete_2D_shapes',
 	'15': 'two_reachable_sync',
 	'16': 'cont_complete_2D_shapes_obs',
+	'20': 'cont_complete_gauss_perfect_fit_time',
+	'21': 'cont_complete_gauss_perfect_fit_time_huge',
 	'100': 'three_two_reachable',
 	'101': 'cont_two_reachable',
 	'102': 'three_four_reachable',

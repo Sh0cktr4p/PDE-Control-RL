@@ -66,6 +66,16 @@ register(
 )
 
 register(
+    id='burger-v20',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteGaussPerfectFitTime'
+)
+
+register(
+    id='burger-v21',
+    entry_point='gym_phiflow.envs:BurgerEnvContCompleteGaussPerfectFitTimeHuge'
+)
+
+register(
     id='burger-v100',
     entry_point='gym_phiflow.envs:BurgerEnvThreeTwoReachable'
 )
@@ -134,6 +144,7 @@ register(
     id='burger-v113',
     entry_point='gym_phiflow.envs:BurgerEnvContCompleteConstantPerfectFit'
 )
+
 
 register(
     id='navier-v00',

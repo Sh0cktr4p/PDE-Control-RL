@@ -4,6 +4,7 @@ import numpy as np
 
 complete16 = np.ones(shape=(16,), dtype=np.bool)
 complete32 = np.ones(shape=(32,), dtype=np.bool)
+complete128 = np.ones(shape=(128,), dtype=np.bool)
 
 two16 = util.act_points(size=(16,), indices=[7,8])
 three16 = util.act_points(size=(16,), indices=[7,8,9])
@@ -156,4 +157,16 @@ class BurgerEnvContCompleteConstantPerfectFit(BurgerEnv):
 	def __init__(self):
 		super().__init__(name='v113', act_type=util.ActionType.CONTINUOUS,
 			act_points=complete32, goal_type=util.GoalType.CONSTANT_FORCE,
+			rew_type=util.RewardType.FIN_APPR, enf_perfect_fit=True)
+
+class BurgerEnvContCompleteGaussPerfectFitTime(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v20', act_type=util.ActionType.CONTINUOUS, use_time=True,
+			act_points=complete32, goal_type=util.GoalType.GAUSS_FORCE,
+			rew_type=util.RewardType.FIN_APPR, enf_perfect_fit=True)
+
+class BurgerEnvContCompleteGaussPerfectFitTimeHuge(BurgerEnv):
+	def __init__(self):
+		super().__init__(name='v21', act_type=util.ActionType.CONTINUOUS, use_time=True,
+			act_points=complete128, goal_type=util.GoalType.GAUSS_FORCE,
 			rew_type=util.RewardType.FIN_APPR, enf_perfect_fit=True)

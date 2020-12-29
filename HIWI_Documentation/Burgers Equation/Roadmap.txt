@@ -99,4 +99,23 @@ Experiment 11:
     -Pi lr: 1e-5
     -Epoch length: 3200 steps
     
+Experiment 12:
+    -Pi lr: 1e-4
+    -Epoch length 3200 steps
+    -added some missing activation layers
+    
+Experiment 13:
+    -Pi lr: 1e-5
+    -Epoch length: 3200 steps
+    
+-Added time to observation space    
+
+Experiment 14:
+    -Pi lr: 1e-5
+    -Epoch length: 3200 steps
+    
+Experiment 15:
+    -Pi lr: 1e-5
+    -Epoch length: 3200 steps
+    -Conv net for critic
     

@@ -1,6 +1,5 @@
 import spinup
 from spinup import ppo_tf1, ppo_pytorch
-from gym_phiflow.envs import networks
 import tensorflow as tf
 import torch
 import gym
@@ -8,6 +7,7 @@ from exp_map import exp_map
 import time
 import datetime
 import actor_critic
+import networks
 import os
 
 
@@ -32,14 +32,14 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 	ac_kwargs = dict(
 		activation=torch.nn.ReLU, device='cuda',
 		pi_hidden_sizes=[4, 8, 16, 16, 16], pi_network=networks.ALT_UNET, 
-		vf_hidden_sizes=[70, 60, 50], vf_network=networks.FCN
+		vf_hidden_sizes=[4, 8, 16, 16, 16], vf_network=networks.CNN_FUNNEL,
 	)
 
 	logger_kwargs = dict(output_dir=path, exp_name=sim_name)
 
 	tic = time.time()
 	ppo_pytorch(env_fn, ac_kwargs=ac_kwargs, steps_per_epoch=3200, epochs=epochs, logger_kwargs=logger_kwargs, 
-			pi_lr=1e-4, vf_lr=1e-3, gamma=0.99, save_freq=save_freq, actor_critic=actor_critic.MLPActorCritic)
+			pi_lr=1e-5, vf_lr=1e-3, gamma=0.99, save_freq=save_freq, actor_critic=actor_critic.MLPActorCritic)
 	toc = time.time()
 
 	time_msg = 'Training time: %s' % datetime.timedelta(seconds=toc - tic)
@@ -50,5 +50,5 @@ def run_experiment(sim_name='burger', key='00', epochs=500, save_freq=50, label=
 		file.write(time_msg)
 
 
-run_experiment('burger', '112', 2000, 100, label="phillips_unet_cleaned_up")
+run_experiment('burger', '20', 2000, 100, label="long_benchmark")
 #run_experiment('navier', '314', 2000, 100, label='mod_unet')

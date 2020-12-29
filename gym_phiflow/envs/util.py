@@ -99,9 +99,10 @@ def get_action_space(act_type, act_dim):
 # vis_shape:		shape of the observable part of the current state
 # goal_type:		enum value indicating if the goal state should be appended to the observation space
 # goal_channels:	determines how many channels should be added if the goal is included in the observation space
+# use_time:			whether the network should be presented with the index of the current time step
 #
 # returns:		gym space describing network input
-def get_observation_space(vis_shape, goal_type, goal_channels):
+def get_observation_space(vis_shape, goal_type, goal_channels, use_time):
 	if goal_type == GoalType.ZERO:
 		obs_shape = vis_shape
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
@@ -110,6 +111,9 @@ def get_observation_space(vis_shape, goal_type, goal_channels):
 		obs_shape = increase_channels(vis_shape, goal_channels)
 	else:
 		raise NotImplementedError()
+
+	if use_time:
+		obs_shape = increase_channels(obs_shape, 1)
 
 	return gym.spaces.Box(-np.inf, np.inf, shape=obs_shape, dtype=np.float32)
 
@@ -162,7 +166,9 @@ def get_act_gen(act_type, act_dim, enf_disc=False):
 
 
 def gaussian(dim, loc, amp, sig):
-	return amp * np.exp(-0.5 * (np.arange(dim) / dim - loc) ** 2 / sig ** 2)
+	res = amp * np.exp(-0.5 * (np.arange(dim) / dim - loc) ** 2 / sig ** 2)
+	#print(np.sum(res))
+	return res #amp * np.exp(-0.5 * (np.arange(dim) / dim - loc) ** 2 / sig ** 2)
 
 
 def gaussian_clash(dim, l_loc, l_amp, l_sig, r_loc, r_amp, r_sig):
@@ -227,15 +233,22 @@ def act_points(size, indices):
 # Generator returning functions to asseble the observation space
 # goal_type:	enum value indicating if the goal state should be appended to the observation space
 # epis_len:		length of a trajectory, used to normalize time values when supplied
+# use_time:		whether the network should be presented with the current time
 #
 # returns:		lambda network input assembly function
-def get_obs_gen(goal_type, epis_len):
+def get_obs_gen(goal_type, epis_len, use_time):
 	if goal_type == GoalType.ZERO:
-		return lambda v, g, t: v
+		if use_time:
+			return lambda v, g, t: np.concatenate((v, np.full(v.shape, t / epis_len)), axis=-1)
+		else:
+			return lambda v, g, t: v
 	elif goal_type == GoalType.RANDOM or goal_type == GoalType.REACHABLE \
 			or goal_type == GoalType.PREDEFINED or goal_type == GoalType.CONSTANT_FORCE \
 			or goal_type == GoalType.GAUSS_FORCE:
-		return lambda v, g, t: np.append(v, g, axis=-1)
+		if use_time:
+			return lambda v, g, t: np.concatenate((v, g, np.full(v.shape, t / epis_len)), axis=-1)
+		else:
+			return lambda v, g, t: np.concatenate((v, g), axis=-1)
 	else:
 		raise NotImplementedError()
 
@@ -283,16 +296,26 @@ def increase_channels(shape, add_channels):
 
 
 class ForceCollector:
-	def __init__(self):
+	def __init__(self, epis_len):
 		self.total_forces = 0
 		self.num_steps = 0
+		self.epis_len = epis_len
+		self.force_hist = []
+		self.curr_ep_forces = 0
 
 	def add_forces(self, forces):
-		self.total_forces += np.sum(np.abs(forces))
+		forces = np.sum(np.abs(forces))
+		self.total_forces += forces
+		self.curr_ep_forces += forces
 		self.num_steps += 1
 
 	def get_forces(self):
-		return self.total_forces * 32.0 / self.num_steps
+		return self.total_forces * self.epis_len / self.num_steps
+
+	def get_force_hist(self):
+		self.force_hist.append(self.curr_ep_forces)
+		self.curr_ep_forces = 0
+		return self.force_hist
 
 
 class ActionRecorder:
@@ -311,6 +334,9 @@ class ActionRecorder:
 		action = self.actions[self.step_idx]
 		self.step_idx += 1
 		return action
+
+	def overall_amt(self):
+		return np.sum(np.abs(self.actions))
 
 
 def get_action_recorder(goal_type):

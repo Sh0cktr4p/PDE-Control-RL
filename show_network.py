@@ -1,6 +1,6 @@
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from gym_phiflow.envs import networks
+import networks
 import torchviz
 
 writer = SummaryWriter('tensorboard/logs')

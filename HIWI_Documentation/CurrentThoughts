@@ -39,6 +39,8 @@ Burgers' Equation:
     how do fully convolutional and fully connected networks compare with
         gaussian distributed forces?
     what about 2d Burgers' Equation?
+    What about setting the reward to be the difference from the current 
+            ground truth at any step
 
     
 Navier-Stokes equations:

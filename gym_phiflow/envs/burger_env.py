@@ -53,9 +53,9 @@ class BurgerEnv(gym.Env):
 		return self.physics.step(controlled_state, self.delta_time)
 
 	def __init__(self, epis_len=32, dt=0.03, vel_scale=1.0,
-			name='v0', act_type=util.ActionType.DISCRETE_2, loss_fn=util.l2_loss,
+			name='v0', act_type=util.ActionType.DISCRETE_2, loss_fn=util.l2_loss, use_time=False,
 			act_points=default_act_points, goal_type=util.GoalType.ZERO, enf_perfect_fit=False,
-			rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, rew_curiosity_factor=1, synchronized=False):
+			rew_type=util.RewardType.ABSOLUTE, rew_force_factor=1, synchronized=False):
 		act_params = util.get_all_act_params(act_points)	# Important for multi-dimensional cases
 		act_dim = 1 if synchronized else np.sum(act_params)
 		
@@ -67,16 +67,16 @@ class BurgerEnv(gym.Env):
 		self.vel_scale = vel_scale
 		self.exp_name = name
 		self.shape = act_points.shape
-		self.physics = phiflow.Burgers()
+		self.physics = phiflow.Burgers(diffusion_substeps=1)
 		self.action_recorder = util.get_action_recorder(goal_type)
 		self.action_space = util.get_action_space(act_type, act_dim)
-		self.observation_space = util.get_observation_space(act_params.shape, goal_type, len(self.shape))
+		self.observation_space = util.get_observation_space(act_params.shape, goal_type, len(self.shape), use_time)
 		self.vis_extractor = lambda s: np.squeeze(np.real(s.velocity.data), axis=0)
 		self.force_gen = util.get_force_gen(act_type, act_params, self.get_random_state().velocity.data.shape, synchronized)
 		self.goal_gen = util.get_goal_gen(self.force_gen, self.step_sim, 
 			self.vis_extractor, self.get_random_state,
 			act_type, goal_type, act_params.shape, act_dim, epis_len, self.action_recorder)
-		self.obs_gen = util.get_obs_gen(goal_type, epis_len)
+		self.obs_gen = util.get_obs_gen(goal_type, epis_len, use_time)
 		self.rew_gen = util.get_rew_gen(rew_type, rew_force_factor, self.epis_len, loss_fn)
 		self.cont_state = None
 		self.pass_state = None
@@ -85,7 +85,8 @@ class BurgerEnv(gym.Env):
 		self.goal_obs = None
 		self.lviz = None
 		self.fviz = None
-		self.force_collector = None
+		self.cont_force_collector = None
+		self.prec_force_collector = None
 		self.test_mode = False
 
 	def reset(self):
@@ -101,7 +102,12 @@ class BurgerEnv(gym.Env):
 			self.pass_state = self.cont_state.copied_with()
 			self.prec_state = self.cont_state.copied_with()
 		
-			print('Average forces: %f' % self.force_collector.get_forces())
+			print('Average forces controlled: %f' % self.cont_force_collector.get_forces())
+			print('Average forces ground truth: %f' % self.prec_force_collector.get_forces())
+			print('Forces ratio: %f' % (self.cont_force_collector.get_forces() / self.prec_force_collector.get_forces()))
+
+			print(self.cont_force_collector.get_force_hist())
+			print(self.prec_force_collector.get_force_hist())
 
 		return self.obs_gen(self.vis_extractor(self.cont_state), self.goal_obs, self.step_idx)
 
@@ -117,17 +123,19 @@ class BurgerEnv(gym.Env):
 			if self.step_idx == self.epis_len:
 				err_new = self.goal_obs - self.vis_extractor(self.cont_state)
 				self.cont_state = self.apply_forces(self.cont_state, err_new / self.delta_time)
-				forces = np.abs(forces) + np.abs(err_new / self.delta_time) * self.epis_len
-
+				remaining_force_factor = 1 if self.test_mode else self.epis_len
+				forces = np.abs(forces) + np.abs(err_new / self.delta_time) * remaining_force_factor
+		
 		# Simulate the precomputed and uncontrolled states in test environments
 		if self.test_mode:
 			if self.action_recorder is not None:
 				f_prec = self.force_gen(self.action_recorder.replay()).copy()
+				self.prec_force_collector.add_forces(f_prec)
 				self.prec_state = self.step_sim(self.prec_state, f_prec)
 		
 			self.pass_state = self.physics.step(self.pass_state, self.delta_time)
 			
-			self.force_collector.add_forces(forces)
+			self.cont_force_collector.add_forces(forces)
 		
 		v_new = self.vis_extractor(self.cont_state)
 
@@ -136,7 +144,7 @@ class BurgerEnv(gym.Env):
 
 		obs = self.obs_gen(v_new, self.goal_obs, self.step_idx)
 		done = self.step_idx == self.epis_len
-		reward = self.rew_gen(err_old, err_new, forces, done)
+		reward = self.rew_gen(err_old, err_new, forces, done) / 1000
 
 		if done:
 			self.epis_idx += 1
@@ -146,7 +154,8 @@ class BurgerEnv(gym.Env):
 	def render(self, mode='l'):
 		if not self.test_mode:
 			self.test_mode = True
-			self.force_collector = util.ForceCollector()
+			self.prec_force_collector = util.ForceCollector(self.epis_len)
+			self.cont_force_collector = util.ForceCollector(self.epis_len)
 			self.init_state = self.cont_state.copied_with()
 			self.pass_state = self.cont_state.copied_with()
 			self.prec_state = self.cont_state.copied_with()
@@ -156,7 +165,8 @@ class BurgerEnv(gym.Env):
 		ndim = len(self.shape)
 		max_value = 2
 		signed = True
-
+		if mode == 'n':
+			return
 		if mode == 'l':
 			frame_rate = 15
 			if self.lviz is None:

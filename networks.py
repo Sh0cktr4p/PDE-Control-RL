@@ -10,6 +10,7 @@ class FCN(torch.nn.Module):
 		print('Using fully connected network')
 		layers = [torch.nn.Flatten()]
 		ext_sizes = [np.prod(input_shape)] + list(sizes) + [output_dim]
+		print(ext_sizes)
 
 		for i in range(len(ext_sizes) - 1):
 			act = activation if i < len(sizes) - 1 else output_activation
@@ -347,6 +348,8 @@ class MOD_UNET(torch.nn.Module):
 class ALT_UNET(torch.nn.Module):
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
+
+		print("Input shape: %s" % str(input_shape))
 
 		# input_shape: (w, c) or (w, h, c)
 		input_dim = len(input_shape) - 1

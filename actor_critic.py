@@ -1,5 +1,5 @@
 from spinup.algos.pytorch.ppo import core
-from gym_phiflow.envs import networks
+import networks
 import torch
 import numpy as np
 
@@ -58,7 +58,7 @@ class MLPActorCritic(torch.nn.Module):
 		super().__init__()
 
 		obs_shape = observation_space.shape
-
+		print("Observation space shape: %s" % str(obs_shape))
 		# policy builder depends on action space
 		if isinstance(action_space, core.Box):
 			self.pi = MLPGaussianActor(obs_shape, action_space.shape[0], pi_hidden_sizes, activation, pi_network, device)
