@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import traceback
-
+from typing import List
 
 class FCN(torch.nn.Module):
 
@@ -348,6 +348,9 @@ class MOD_UNET(torch.nn.Module):
 class ALT_UNET(torch.nn.Module):
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
+
+		if type(input_shape) != tuple:
+			input_shape = input_shape.shape
 
 		print("Input shape: %s" % str(input_shape))
 

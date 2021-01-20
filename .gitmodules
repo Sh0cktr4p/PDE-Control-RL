@@ -1,0 +1,6 @@
+[submodule "stable-baselines3"]
+	path = stable-baselines3
+	url = https://github.com/DLR-RM/stable-baselines3.git
+[submodule "PDE-Control"]
+	path = PDE-Control
+	url = https://github.com/holl-/PDE-Control.git

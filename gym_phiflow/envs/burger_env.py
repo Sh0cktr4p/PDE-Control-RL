@@ -1,9 +1,8 @@
-from gym_phiflow.envs import util, phiflow_util, visualization
+from gym_phiflow.envs import util, burgers_util, visualization
 import phi.tf.flow as phiflow
 import numpy as np
 import gym
 import time
-
 
 default_act_points = util.act_points((16,), 0)
 
@@ -43,13 +42,14 @@ class BurgerEnv(gym.Env):
 
 	def get_random_state(self):
 		domain = phiflow.Domain(self.shape, box=phiflow.box[0:1])
-		return phiflow.BurgersVelocity(domain=domain, velocity=phiflow_util.GaussianClash(1), viscosity=0.003)
+		return phiflow.BurgersVelocity(domain=domain, velocity=burgers_util.GaussianClash(1), viscosity=0.003)
 
 	def apply_forces(self, state, forces):
 		return state.copied_with(velocity=state.velocity.data + forces.reshape(state.velocity.data.shape) * self.delta_time)
 
 	def step_sim(self, state, forces):
 		controlled_state = self.apply_forces(state, forces)
+		#return controlled_state # TODO delete
 		return self.physics.step(controlled_state, self.delta_time)
 
 	def __init__(self, epis_len=32, dt=0.03, vel_scale=1.0,

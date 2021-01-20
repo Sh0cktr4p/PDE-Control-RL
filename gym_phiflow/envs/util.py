@@ -1,7 +1,7 @@
 import gym
 from enum import Enum
 import numpy as np
-from gym_phiflow.envs import phiflow_util
+from gym_phiflow.envs import burgers_util
 
 class ActionType(Enum):
 	CONTINUOUS = 0			# Forces can be any floating point value
