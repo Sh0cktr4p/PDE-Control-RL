@@ -1,66 +1,180 @@
-from stable_baselines3 import PPO
-from stable_baselines3.common.monitor import Monitor
-from gym_phiflow.envs.burgers_env import BurgersEnv
-from gym_phiflow.envs.burger_env import BurgerEnv
-from gym_phiflow.envs.vec_monitor import VecMonitor
-from networks import ALT_UNET, CNN_FUNNEL
-from sb_ac import CustomActorCriticPolicy
-import gym
-
+import os
+import json
+import shutil
 import torch
+import pickle
 
-field_shape = (32,)
+import gym
+from stable_baselines3 import PPO
+from function_callback import EveryNRolloutsFunctionCallback
+from gym_phiflow.envs.burgers_env import BurgersEnv
+from gym_phiflow.envs.vec_monitor import VecMonitor
 
-n_steps = 3200
-n_envs = 10
-n_rollouts = 100
 
-env = BurgersEnv(num_envs=n_envs, field_shape=field_shape, final_reward_factor=32)
-env = VecMonitor(env, n_steps, 'loggo')
-#env = gym.make('gym_phiflow:burger-v20')
-#env = Monitor(env)
+base_path = 'models'
+monitor_filename = 'monitor.pkl'
+agent_filename = 'agent.zip'
+agent_temp_filename = 'agent_temp.zip'
+agent_backup_filename_template = 'agent_backup_%02i.zip'
+ppo_hparams_filename = 'hparams'
 
-#from stable_baselines3.common.env_util import make_atari_env
+burgers_env_name = 'burgers'
 
-#env = Monitor(gym.make('gym_phiflow:burger-v106'), filename='lollol')
 
-print(env.action_space.__dict__)
+def filter_dict(d, ks):
+    return {k:d[k] for k in ks}
 
-#network_input_shape = env.observation_space.shape
-#network_output_dim = env.action_space.shape[0]
-#network_sizes = [4, 8, 16, 16, 16]
 
-'''
-policy_kwargs = {
-    'pi_net': ALT_UNET,
-    'vf_net': CNN_FUNNEL,
-    'vf_latent_dim': 16,
-    'pi_kwargs': {
-        'sizes': [4, 8, 16, 16, 16],
-    },
-    'vf_kwargs': {
-        'sizes': [4, 8, 16, 16, 16],
+def get_env_cls(env_name):
+    if env_name == burgers_env_name:
+        return BurgersEnv
+    else:
+        raise NotImplementedError()
+
+
+def get_next_agent_backup_index(experiment_path):
+    i = 0
+    while os.path.exists(os.path.join(experiment_path, agent_backup_filename_template % i)):
+        i += 1
+
+    return i
+
+
+def make_env(env_name, env_hparams, n_steps, monitor_path):
+    env_cls = get_env_cls(env_name)
+    env = env_cls(**env_hparams)
+    env = VecMonitor(env, n_steps, monitor_path)
+    return env
+
+
+def create(env, ppo_hparams, ppo_hparams_path):
+    print('Storing hparams:')
+    print(ppo_hparams)
+    with open(ppo_hparams_path, 'wb') as ppo_hparams_file:
+        pickle.dump(ppo_hparams, ppo_hparams_file)
+    agent = PPO(env=env, verbose=1, **ppo_hparams)
+    return agent
+
+
+def store(agent, agent_path):
+    agent.save(agent_path)
+
+
+def load(env, agent_path, ppo_hparams_path):
+    print("AGENT PATH: %s" % agent_path)
+    with open(ppo_hparams_path, 'rb') as ppo_hparams_file:
+        ppo_hparams = pickle.load(ppo_hparams_file)
+    print('Hyperparameters: ')
+    print(ppo_hparams)
+    agent = PPO.load(agent_path, env, **ppo_hparams)
+    return agent
+
+
+def train(env_name, path, env_hparams, ppo_hparams, learn_hparams, rollouts_between_stores, stores_between_backups):
+    assert isinstance(path, str)
+    assert isinstance(env_name, str)
+
+    experiment_path = os.path.join(base_path, env_name, path)
+    monitor_path = os.path.join(experiment_path, monitor_filename)
+    agent_path = os.path.join(experiment_path, agent_filename)
+    agent_temp_path = os.path.join(experiment_path, agent_temp_filename)
+    ppo_hparams_path = os.path.join(experiment_path, ppo_hparams_filename)
+
+    n_steps = ppo_hparams['n_steps']
+
+
+    next_backup_index = 0
+
+    if os.path.exists(experiment_path):
+        assert os.path.exists(agent_path)
+        assert os.path.exists(ppo_hparams_path)
+        # Load an existing model
+        env = make_env(env_name, env_hparams, n_steps, monitor_path)
+        print('Loading existing model, ignoring new ppo hyperparameters')
+        agent = load(env, agent_path, ppo_hparams_path)
+        next_backup_index = get_next_agent_backup_index(experiment_path)
+    else:
+        print('Generating new model at %s' % experiment_path)
+        os.makedirs(experiment_path)
+        env = make_env(env_name, env_hparams, n_steps, monitor_path)
+        agent = create(env, ppo_hparams, ppo_hparams_path)
+
+    def store_callback_fn(repeats):
+        print('Storing model')
+        store(agent, agent_temp_path)
+        if os.path.exists(agent_path):
+            os.remove(agent_path)
+        os.rename(agent_temp_path, agent_path)
+        if repeats % stores_between_backups == 0:
+            print('storing backup')
+            backup_path = os.path.join(experiment_path, agent_backup_filename_template % next_backup_index)
+            shutil.copyfile(agent_path, backup_path)
+            next_backup_index += 1
+
+    store_callback = EveryNRolloutsFunctionCallback(rollouts_between_stores, store_callback_fn)
+
+    agent.learn(callback=store_callback, **learn_hparams)
+
+    env.close()
+
+
+def get_env_hparams(hparams):
+    env_hparam_list = [
+        'n_envs',
+    ]
+    return filter_dict(hparams, env_hparam_list)
+
+def get_ppo_hparams(hparams):
+    ppo_hparam_list = [
+        'policy',
+        'learning_rate',
+        'batch_size',
+        'n_steps',
+        'n_epochs',
+        'policy_kwargs',
+    ]
+    return filter_dict(hparams, ppo_hparam_list)
+
+def get_learn_hparams(hparams):
+    learn_hparam_list = [
+        'total_timesteps',
+    ]
+    return filter_dict(hparams, learn_hparam_list)
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--env_name', help='environment name', default=burgers_env_name, choices=[burgers_env_name])
+    parser.add_argument('--path', help='path to the model folder')
+    parser.add_argument('--rollouts_between_stores', default=10)
+    parser.add_argument('--stores_between_backups', default=10)
+    # Environment arguments
+    parser.add_argument('--n_envs', help='number of parallel environments', default=10)
+    # PPO arguments
+    parser.add_argument('--policy', default='MlpPolicy')
+    parser.add_argument('--learning_rate', default=1e-4)
+    parser.add_argument('--batch_size', default=128)
+    parser.add_argument('--n_steps', help='number of steps per rollout and environment', default=320)
+    parser.add_argument('--n_epochs', default=10)
+    # Learning arguments
+    parser.add_argument('--total_timesteps', default=320 * 10 * 1000)
+
+    args = parser.parse_args()
+    args_dict = args.__dict__
+    
+    args_dict['policy_kwargs'] = {
+        'activation_fn': torch.nn.ReLU, 
+        'net_arch': [70, 60, 50],
     }
-}
-'''
 
-policy_kwargs = {'activation_fn':torch.nn.ReLU, 'net_arch':[70, 60, 50]}
+    env_name = args_dict['env_name']
+    path = args_dict['path']
+    rollouts_between_stores = args_dict['rollouts_between_stores']
+    stores_between_backups = args_dict['stores_between_backups']
+    ppo_args = get_ppo_hparams(args_dict)
+    env_args = get_env_hparams(args_dict)
+    learn_args = get_learn_hparams(args_dict)
 
-model = PPO('MlpPolicy', env, verbose=1)#learning_rate=2e-5, n_steps=n_steps, batch_size=64, n_epochs=10, verbose=1, policy_kwargs=policy_kwargs)
-#model = PPO.load('test_run', env)
-
-model.learn(100000)#n_steps * n_envs * n_rollouts)
-
-#model.save('test_run')
-
-obs = env.reset()
-for i in range(1000):
-    action, _states = model.predict(obs, deterministic=True)
-    print(action)
-    env.render('l')
-    obs, reward, done, info = env.step(action)
-    if done[0]:
-        env.render('l')
-        obs = env.reset()
-
-env.close()
+    train(env_name, path, env_args, ppo_args, learn_args, rollouts_between_stores, stores_between_backups)

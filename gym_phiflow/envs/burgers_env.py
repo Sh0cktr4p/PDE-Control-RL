@@ -12,7 +12,7 @@ class BurgersEnv(VecEnv):
     metadata = {'render.modes': ['l', 'f']}
 
     def __init__(
-        self, num_envs: int, step_count: int=32, field_shape: Tuple[int, ...]=(32,), 
+        self, n_envs: int, step_count: int=32, field_shape: Tuple[int, ...]=(32,), 
         dt: float=0.03, viscosity: float=0.003, diffusion_substeps: int=1,
         final_reward_factor: float=32, exp_name: str='v0'
     ):
@@ -21,7 +21,7 @@ class BurgersEnv(VecEnv):
         observation_space = gym.spaces.Box(-np.inf, np.inf, shape=obs_shape, dtype=np.float32)
         action_space = gym.spaces.Box(-np.inf, np.inf, shape=act_shape, dtype=np.float32)
 
-        super().__init__(num_envs, observation_space, action_space)
+        super().__init__(n_envs, observation_space, action_space)
 
         self.reward_range = (-float('inf'), float('inf'))
         self.spec = None
