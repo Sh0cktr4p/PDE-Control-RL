@@ -1,15 +1,17 @@
-import phi.tf.flow as phiflow
+import phi.flow as phiflow
 import gym
-from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn
-from stable_baselines3.common.running_mean_std import RunningMeanStd
 import numpy as np
 from typing import Any, List, Optional, Tuple, Type, Union
-from gym_phiflow.envs.visualization import *
 
-from gym_phiflow.envs.burgers_util import *
+from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn
+from stable_baselines3.common.running_mean_std import RunningMeanStd
+
+from gym_phiflow.envs.visualization import GifPlotter, LivePlotter, PngPlotter
+from gym_phiflow.envs.burgers_util import GaussianClash, GaussianForce
+
 
 class BurgersEnv(VecEnv):
-    metadata = {'render.modes': ['l', 'f']}
+    metadata = {'render.modes': ['live', 'gif', 'png']}
 
     def __init__(
         self, n_envs: int, step_count: int=32, field_shape: Tuple[int, ...]=(32,), 
@@ -44,7 +46,8 @@ class BurgersEnv(VecEnv):
         self.gt_state = None
         self.gt_forces = None
         self.lviz = None
-        self.fviz = None
+        self.gifviz = None
+        self.pngviz = None
 
     def reset(self) -> VecEnvObs:
         self.step_idx = 0
@@ -65,9 +68,7 @@ class BurgersEnv(VecEnv):
 
     def step_wait(self) -> VecEnvStepReturn:
         self.step_idx += 1
-
         forces = phiflow.FieldEffect(phiflow.CenteredGrid(self.actions, box=self.domain.box), ['velocity'])
-
         self.cont_state = self._step_sim(self.cont_state, (forces,))
 
         # Perform reference simulation only when evaluating results -> after render was called once
@@ -76,11 +77,8 @@ class BurgersEnv(VecEnv):
             self.gt_state = self._step_sim(self.gt_state, (self.gt_forces,))
 
         obs = self._build_obs()
-
         rew = self._build_rew(forces)
-
         done = np.full((self.num_envs,), self.step_idx == self.step_count)
-
         info = [{} for _ in range(self.num_envs)]
 
         if self.step_idx == self.step_count:
@@ -89,44 +87,42 @@ class BurgersEnv(VecEnv):
             missing_forces_field = (self.goal_state.velocity.data - self.cont_state.velocity.data) / self.dt
             missing_forces = phiflow.FieldEffect(phiflow.CenteredGrid(missing_forces_field, box=self.domain.box), ['velocity'])
             
-            self.cont_state = self._step_sim(self.cont_state, (missing_forces,)) 
-
+            self.cont_state = self.cont_state.copied_with(velocity=(self.cont_state.velocity.data + missing_forces_field * self.dt))
+            
             add_rew = self._build_rew(missing_forces) * self.final_reward_factor
-
-            rew = add_rew
-            #rew += add_rew
-
+            rew += add_rew
 
             obs = self.reset()
-        else:
-            rew = np.zeros(rew.shape)
-
-        self.reward_rms.update(rew)
-
-        #print('%f - %f' % (self.reward_rms.mean, np.sqrt(self.reward_rms.var)))
-
-        norm_rew = rew / np.sqrt(self.reward_rms.var)
-
-        #print(norm_rew)
         
+        self.reward_rms.update(rew)
+        rew = (rew - self.reward_rms.mean) / np.sqrt(self.reward_rms.var)
+
         return obs, rew, done, info
 
     def close(self) -> None:
         pass
 
-    def render(self, mode: str='l') -> None:
+    def render(self, mode: str='live') -> None:
         if not self.test_mode:
             self.test_mode = True
             self._init_ref_states()
-            self.lviz = LivePlotter()
-            self.fviz = FilePlotter('StableBurger-%s' % self.exp_name)
+            if mode == 'live':
+                self.lviz = LivePlotter()
+            elif mode == 'gif':
+                self.gifviz = GifPlotter('StableBurger-%s' % self.exp_name)
+            elif mode == 'png':
+                self.pngviz = PngPlotter('StableBurger-%s' % self.exp_name)
+            else: 
+                raise NotImplementedError()
 
         fields, labels = self._get_fields_and_labels()
 
-        if mode == 'l':
-            self.lviz.render(fields, labels, 2, True, 15)
-        elif mode == 'f':
-            self.fviz.render(fields, labels, 2, True, 'Velocity', self.ep_idx, self.step_idx, self.num_steps, True)
+        if mode == 'live':
+            self.lviz.render(fields, labels, 2, True)
+        elif mode == 'gif':
+            self.gifviz.render(fields, labels, 2, True, 'Velocity', self.ep_idx, self.step_idx, self.step_count, True)
+        elif mode == 'png':
+            self.pngviz.render(fields, labels, 2, True, 'Velocity', self.ep_idx, self.step_idx, self.step_count, True)
         else:
             raise NotImplementedError()
 
@@ -197,17 +193,17 @@ class BurgersEnv(VecEnv):
         fields = [f.velocity.data[0].reshape(-1) for f in [
             self.init_state,
             self.goal_state,
-            self.cont_state,
             self.pass_state,
             self.gt_state,
+            self.cont_state,
         ]]
 
         labels = [
             'Initial state',
             'Goal state',
-            'Controlled simulation',
             'Uncontrolled simulation',
             'Ground truth simulation',
+            'Controlled simulation',
         ]
 
         return fields, labels

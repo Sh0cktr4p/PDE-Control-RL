@@ -9,14 +9,16 @@ def plot_monitoring_results(**args):
     avg_length = df['l']
     time = df['t']
 
+    print(len(avg_reward))
+
     # Handle restarted trainings
     for i in range(len(time) - 1):
         if time[i+1] < time[i]:
             time[i+1] += time[i]
 
-    length = (len(avg_reward) // 100) * 100
+    length = (len(avg_reward) // 1) * 1
 
-    avg_reward = np.sum(np.array(avg_reward[:length]).reshape(-1, 100), axis=-1) / 100
+    avg_reward = np.sum(np.array(avg_reward[:length]).reshape(-1, 1), axis=-1) / 1
 
     plt.plot(avg_reward, label="Average return per rollout")
     plt.legend()

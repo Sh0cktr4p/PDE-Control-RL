@@ -1,7 +1,5 @@
 tensorboard/
-output/
-old_outputs/
-output_old/
+models/
 gym_foo.egg-info
 *.pyc
 .vscode/

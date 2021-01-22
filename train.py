@@ -6,19 +6,55 @@ import pickle
 
 import gym
 from stable_baselines3 import PPO
+from networks import ALT_UNET, CNN_FUNNEL
+from policy import CustomActorCriticPolicy
 from function_callback import EveryNRolloutsFunctionCallback
 from gym_phiflow.envs.burgers_env import BurgersEnv
 from gym_phiflow.envs.vec_monitor import VecMonitor
 
 
 base_path = 'models'
-monitor_filename = 'monitor.pkl'
+monitor_filename = 'monitor'
 agent_filename = 'agent.zip'
 agent_temp_filename = 'agent_temp.zip'
 agent_backup_filename_template = 'agent_backup_%02i.zip'
-ppo_hparams_filename = 'hparams'
+ppo_hparams_filename = 'hparams.pkl'
 
 burgers_env_name = 'burgers'
+
+
+def get_mlp_kwargs():
+    policy_kwargs = {
+        'activation_fn': torch.nn.ReLU, 
+        'net_arch': [70, 60, 50],
+    }
+
+    return policy_kwargs
+
+
+def get_unet_kwargs():
+    policy_kwargs = {
+        'pi_net': ALT_UNET,
+        'vf_net': CNN_FUNNEL,
+        'vf_latent_dim': 16,
+        'pi_kwargs': {
+            'sizes': [4, 8, 16, 16, 16],
+        },
+        'vf_kwargs': {
+            'sizes': [4, 8, 16, 16, 16],
+        },
+    }
+    return policy_kwargs
+
+
+def get_paths(env_name, path):
+    experiment_path = os.path.join(base_path, env_name, path)
+    monitor_path = os.path.join(experiment_path, monitor_filename)
+    agent_path = os.path.join(experiment_path, agent_filename)
+    agent_temp_path = os.path.join(experiment_path, agent_temp_filename)
+    ppo_hparams_path = os.path.join(experiment_path, ppo_hparams_filename)
+
+    return experiment_path, monitor_path, agent_path, agent_temp_path, ppo_hparams_path
 
 
 def filter_dict(d, ks):
@@ -74,14 +110,9 @@ def train(env_name, path, env_hparams, ppo_hparams, learn_hparams, rollouts_betw
     assert isinstance(path, str)
     assert isinstance(env_name, str)
 
-    experiment_path = os.path.join(base_path, env_name, path)
-    monitor_path = os.path.join(experiment_path, monitor_filename)
-    agent_path = os.path.join(experiment_path, agent_filename)
-    agent_temp_path = os.path.join(experiment_path, agent_temp_filename)
-    ppo_hparams_path = os.path.join(experiment_path, ppo_hparams_filename)
+    experiment_path, monitor_path, agent_path, agent_temp_path, ppo_hparams_path = get_paths(env_name, path)
 
     n_steps = ppo_hparams['n_steps']
-
 
     next_backup_index = 0
 
@@ -100,6 +131,7 @@ def train(env_name, path, env_hparams, ppo_hparams, learn_hparams, rollouts_betw
         agent = create(env, ppo_hparams, ppo_hparams_path)
 
     def store_callback_fn(repeats):
+        nonlocal next_backup_index
         print('Storing model')
         store(agent, agent_temp_path)
         if os.path.exists(agent_path):
@@ -146,28 +178,27 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--env_name', help='environment name', default=burgers_env_name, choices=[burgers_env_name])
-    parser.add_argument('--path', help='path to the model folder')
-    parser.add_argument('--rollouts_between_stores', default=10)
-    parser.add_argument('--stores_between_backups', default=10)
+    parser.add_argument('--env_name', type=str, help='environment name', default=burgers_env_name, choices=[burgers_env_name])
+    parser.add_argument('--path', type=str, help='path to the model folder')
+    parser.add_argument('--rollouts_between_stores', type=int, default=10)
+    parser.add_argument('--stores_between_backups', type=int, default=10)
     # Environment arguments
-    parser.add_argument('--n_envs', help='number of parallel environments', default=10)
+    parser.add_argument('--n_envs', type=int, help='number of parallel environments', default=10)
     # PPO arguments
-    parser.add_argument('--policy', default='MlpPolicy')
-    parser.add_argument('--learning_rate', default=1e-4)
-    parser.add_argument('--batch_size', default=128)
-    parser.add_argument('--n_steps', help='number of steps per rollout and environment', default=320)
-    parser.add_argument('--n_epochs', default=10)
+    #parser.add_argument('--policy', type=str, default='MlpPolicy')
+    parser.add_argument('--learning_rate', type=float, default=1e-4)
+    parser.add_argument('--batch_size', type=int, default=128)
+    parser.add_argument('--n_steps', type=int, help='number of steps per rollout and environment', default=320)
+    parser.add_argument('--n_epochs', type=int, default=10)
     # Learning arguments
-    parser.add_argument('--total_timesteps', default=320 * 10 * 1000)
+    parser.add_argument('--total_timesteps', type=int, default=320 * 10 * 1000)
 
     args = parser.parse_args()
     args_dict = args.__dict__
     
-    args_dict['policy_kwargs'] = {
-        'activation_fn': torch.nn.ReLU, 
-        'net_arch': [70, 60, 50],
-    }
+    args_dict['policy'] = CustomActorCriticPolicy
+
+    args_dict['policy_kwargs'] = get_unet_kwargs()
 
     env_name = args_dict['env_name']
     path = args_dict['path']

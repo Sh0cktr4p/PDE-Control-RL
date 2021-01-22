@@ -92,7 +92,7 @@ class LiveViz:
 	def __init__(self):
 		pass
 
-	def render(self, fields, labels, max_value, signed, frame_rate):
+	def render(self, fields, labels, max_value, signed):
 		pass
 
 
@@ -109,9 +109,7 @@ class LiveRenderer(LiveViz):
 		self.fig = None
 		self.img = None
 
-	def render(self, fields, labels, max_value, signed, frame_rate):
-		tic = time.time()
-
+	def render(self, fields, labels, max_value, signed):
 		if self.fig is None:
 			plt.ion()
 			self.fig, self.img = render_fields(fields, labels, max_value, signed)
@@ -120,11 +118,6 @@ class LiveRenderer(LiveViz):
 
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
-
-		toc = time.time()
-		sleep_time = 1 / frame_rate - (toc - tic)
-		if sleep_time > 0:
-			time.sleep(sleep_time)
 		
 
 class FileRenderer(FileViz):
@@ -154,9 +147,7 @@ class LivePlotter(LiveViz):
 		self.fig = None
 		self.plots = None
 
-	def render(self, fields, labels, max_value, signed, frame_rate):
-		tic = time.time()
-
+	def render(self, fields, labels, max_value, signed):
 		if self.fig is None:
 			plt.ion()
 			self.fig, self.plots = plot_fields(fields, labels, max_value, signed)
@@ -167,22 +158,37 @@ class LivePlotter(LiveViz):
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
 
-		toc = time.time()
-		sleep_time = 1 / frame_rate - (toc - tic)
-		if sleep_time > 0:
-			time.sleep(sleep_time)
 
-
-class FilePlotter(FileViz):
+class GifPlotter(FileViz):
 	def __init__(self, category_name):
 		self.scene = phi.flow.Scene.create(os.path.expanduser('~/phi/data/'), category_name, mkdir=True)
 		self.image_dir = self.scene.subpath('images', create=True)
 		self.data = []
 
 	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
-		self.render_png(fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames)
+		#if step_idx == ep_len:
+		#	ep_idx -= 1
+		
+		fig, _ = plot_fields(fields, labels, max_value, signed)
 
-	def render_png(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
+		path = os.path.join(self.image_dir, '%s%04d_%04d.png' % (plot_name, ep_idx, step_idx))
+		plt.savefig(path)
+		plt.close()
+
+		if path:
+			print('Frame written to %s' % path)
+
+		if step_idx == ep_len - 1:
+			combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len, remove_frames)
+
+
+class PngPlotter(FileViz):
+	def __init__(self, category_name):
+		self.scene = phi.flow.Scene.create(os.path.expanduser('~/phi/data/'), category_name, mkdir=True)
+		self.image_dir = self.scene.subpath('images', create=True)
+		self.data = []
+
+	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
 		fields = fields[0:3]
 		labels = labels[0:3]
 		self.data.append(fields)
@@ -199,19 +205,3 @@ class FilePlotter(FileViz):
 				plt.savefig(path)
 				plt.close()
 			self.data = []
-
-	def render_gif(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
-		if step_idx == ep_len:
-			ep_idx -= 1
-		
-		fig, _ = plot_fields(fields, labels, max_value, signed)
-
-		path = os.path.join(self.image_dir, '%s%04d_%04d.png' % (plot_name, ep_idx, step_idx))
-		plt.savefig(path)
-		plt.close()
-
-		if path:
-			print('Frame written to %s' % path)
-
-		if step_idx == ep_len:
-			combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len+1, remove_frames)
