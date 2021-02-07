@@ -4,6 +4,6 @@ gym_foo.egg-info
 *.pyc
 .vscode/
 *.directory/
-gym_phiflow/notebooks/burgers-models
-gym_phiflow/notebooks/forced-burgers-clash
-gym_phiflow/notebooks/.ipynb_checkpoints
+gym_phiflow/notebooks/burgers-models/
+gym_phiflow/notebooks/forced-burgers-clash/
+gym_phiflow/notebooks/.ipynb_checkpoints/

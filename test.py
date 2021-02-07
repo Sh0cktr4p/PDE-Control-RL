@@ -1,7 +1,7 @@
 import os
 import time
 import numpy as np
-from train import agent_backup_filename_template, burgers_env_name, get_env_hparams, get_paths, load, make_env
+from train import agent_backup_filename_template, burgers_fixed_set_env_name, get_env_hparams, get_paths, load, make_env
 
 
 def sleep_to_keep_framerate(start_time, end_time, time_between_frames):
@@ -11,7 +11,7 @@ def sleep_to_keep_framerate(start_time, end_time, time_between_frames):
 
 
 def test(env_name, path, use_backup, env_hparams, n_trajectories, fps, render_mode):
-    experiment_path, monitor_path, agent_path, _, ppo_hparams_path = get_paths(env_name, path)
+    experiment_path, monitor_path, agent_path, _, ppo_hparams_path = get_paths('burgers', path)
     monitor_path = monitor_path + '_test'
     time_between_frames = 1 / fps
 
@@ -46,12 +46,15 @@ if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--env_name', type=str, help='environment name', default=burgers_env_name, choices=[burgers_env_name])
+    parser.add_argument('--env_name', type=str, help='environment name', default=burgers_fixed_set_env_name, choices=[burgers_fixed_set_env_name])
     parser.add_argument('--path', type=str, help='path to the model folder')
     parser.add_argument('--n_trajectories', type=int, default=10)
     parser.add_argument('--fps', type=int, default=15)
     parser.add_argument('--render_mode', type=str, default='live', choices=['live', 'gif', 'png'])
     parser.add_argument('--use_backup', type=int, default=-1)
+
+    parser.add_argument('--data_path', type=str, help='path to the data set to load')
+    parser.add_argument('--data_range', type=range, default=range(100))
 
     args = parser.parse_args()
     args_dict = args.__dict__
@@ -66,5 +69,7 @@ if __name__ == '__main__':
     fps = args_dict['fps']
     render_mode = args_dict['render_mode']
     env_args = get_env_hparams(args_dict)
+    env_args['data_path'] = args_dict['data_path']
+    env_args['data_range'] = args_dict['data_range']
 
     test(env_name, path, use_backup, env_args, n_trajectories, fps, render_mode)

@@ -28,7 +28,7 @@ class VecMonitor(VecEnvWrapper):
     ):
         super().__init__(venv)
         self.t_start = time.time()
-        fieldnames = ("r", "l", "t") + tuple(kw + '_i' for kw in info_keywords)
+        fieldnames = ("r", "l", "t") + info_keywords
 
         if filename is None:
             self.file_handler = None
@@ -52,7 +52,8 @@ class VecMonitor(VecEnvWrapper):
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_times = []
-        self.curr_ep_data = {fn: [] for fn in fieldnames}
+        self.curr_rollout_data = {fn: [] for fn in fieldnames}
+        self.curr_ep_data = {fn: np.zeros(self.num_envs, dtype=np.float32) for fn in info_keywords}
         self.total_steps = 0
         self.step_idx_in_rollout = 0
         self.rollout_size = rollout_size
@@ -70,8 +71,10 @@ class VecMonitor(VecEnvWrapper):
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_times = []
+        for key in self.curr_rollout_data:
+            self.curr_rollout_data[key] = []
         for key in self.curr_ep_data:
-            self.curr_ep_data[key] = []
+            self.curr_ep_data[key] = np.zeros(self.num_envs, dtype=np.float32)
         self.step_idx_in_rollout = 0
         return obs
 
@@ -85,6 +88,9 @@ class VecMonitor(VecEnvWrapper):
         self.curr_ep_lengths += 1
 
         new_infos = list(infos[:])
+        for key in self.curr_ep_data:
+            self.curr_ep_data[key] += list(map(lambda d: d[key], infos))
+
         for i in range(len(dones)):
             if dones[i]:
                 info = infos[i].copy()
@@ -92,17 +98,18 @@ class VecMonitor(VecEnvWrapper):
                 ep_len = self.curr_ep_lengths[i]
                 ep_time = round(time.time() - self.t_start, 6)
                 ep_info = {'r': ep_rew, 'l': ep_len, 't': ep_time}
-                for key in self.info_keywords:
+                for key in self.curr_ep_data:
                     # Change in behavior: grab only the values in episode that would be overwritten
-                    ep_info[key + '_i'] = info['episode'][key]
+                    ep_info[key] = self.curr_ep_data[key][i]
+                    self.curr_ep_data[key][i] = 0
                 self.episode_rewards.append(ep_rew)
                 self.episode_lengths.append(ep_len)
                 self.episode_times.append(ep_time)
                 self.curr_ep_rewards[i] = 0
                 self.curr_ep_lengths[i] = 0
                 if self.logger:
-                    for key in self.curr_ep_data:
-                        self.curr_ep_data[key].append(ep_info[key])
+                    for key in self.curr_rollout_data:
+                        self.curr_rollout_data[key].append(ep_info[key])
                 info['episode'] = ep_info
                 new_infos[i] = info
         self.total_steps += self.num_envs
@@ -111,13 +118,13 @@ class VecMonitor(VecEnvWrapper):
         if self.step_idx_in_rollout == self.rollout_size:
             if self.logger:
                 # Correct the value for time (a bit ugly, I know)
-                if 't' in self.curr_ep_data:
-                    self.curr_ep_data['t'] = [time.time() - self.t_start]
+                if 't' in self.curr_rollout_data:
+                    self.curr_rollout_data['t'] = [time.time() - self.t_start]
                 # Store the average values per rollout
-                self.logger.writerow({k:safe_mean(self.curr_ep_data[k]) for k in self.curr_ep_data})
+                self.logger.writerow({k:safe_mean(self.curr_rollout_data[k]) for k in self.curr_rollout_data})
                 self.file_handler.flush()
-                for key in self.curr_ep_data:
-                    self.curr_ep_data[key] = []
+                for key in self.curr_rollout_data:
+                    self.curr_rollout_data[key] = []
                 self.step_idx_in_rollout = 0
 
         return obss, rews, dones, new_infos

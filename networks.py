@@ -164,7 +164,7 @@ class RES_FUNNEL(torch.nn.Module):
 		return self.net(x)
 
 
-class UNET(torch.nn.Module):
+class SIMP_UNET(torch.nn.Module):
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
 
@@ -345,18 +345,18 @@ class MOD_UNET(torch.nn.Module):
 		return x
 
 
-class ALT_UNET(torch.nn.Module):
+class RES_UNET(torch.nn.Module):
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
 
 		if type(input_shape) != tuple:
 			input_shape = input_shape.shape
 
-		print("Input shape: %s" % str(input_shape))
+		#print("Input shape: %s" % str(input_shape))
 
 		# input_shape: (w, c) or (w, h, c)
 		input_dim = len(input_shape) - 1
-		
+
 		if input_dim == 1:
 			conv = torch.nn.Conv1d
 			pad = OneSidedPadding1d
@@ -434,7 +434,7 @@ class ALT_UNET(torch.nn.Module):
 
 		self.shavers = torch.nn.ModuleList([pad(-i, 'constant') for i in shave_amts])
 
-		print('Using U-Net with %d levels' % self.num_levels)
+		#print('Using U-Net with %d levels' % self.num_levels)
 
 	def forward(self, x):
 		y = self.preprocess(x)

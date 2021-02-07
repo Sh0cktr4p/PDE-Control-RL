@@ -6,11 +6,12 @@ import pickle
 
 import gym
 from stable_baselines3 import PPO
-from networks import ALT_UNET, CNN_FUNNEL
+from networks import RES_UNET, CNN_FUNNEL
 from policy import CustomActorCriticPolicy
 from function_callback import EveryNRolloutsFunctionCallback
 from gym_phiflow.envs.burgers_env import BurgersEnv
 from gym_phiflow.envs.vec_monitor import VecMonitor
+from gym_phiflow.envs.burgers_fixed_set import BurgersFixedSetEnv
 
 
 base_path = 'models'
@@ -21,6 +22,7 @@ agent_backup_filename_template = 'agent_backup_%02i.zip'
 ppo_hparams_filename = 'hparams.pkl'
 
 burgers_env_name = 'burgers'
+burgers_fixed_set_env_name = 'burgers_fixed_env'
 
 
 def get_mlp_kwargs():
@@ -34,7 +36,7 @@ def get_mlp_kwargs():
 
 def get_unet_kwargs():
     policy_kwargs = {
-        'pi_net': ALT_UNET,
+        'pi_net': RES_UNET,
         'vf_net': CNN_FUNNEL,
         'vf_latent_dim': 16,
         'pi_kwargs': {
@@ -64,6 +66,8 @@ def filter_dict(d, ks):
 def get_env_cls(env_name):
     if env_name == burgers_env_name:
         return BurgersEnv
+    elif env_name == burgers_fixed_set_env_name:
+        return BurgersFixedSetEnv
     else:
         raise NotImplementedError()
 
@@ -115,6 +119,8 @@ def train(env_name, path, env_hparams, ppo_hparams, learn_hparams, rollouts_betw
     n_steps = ppo_hparams['n_steps']
 
     next_backup_index = 0
+
+    ppo_hparams['tensorboard_log'] = os.path.join(experiment_path, 'tensorboard/')
 
     if os.path.exists(experiment_path):
         assert os.path.exists(agent_path)
