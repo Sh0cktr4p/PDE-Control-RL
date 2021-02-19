@@ -52,7 +52,7 @@ class ExperimentFolder:
 
     def get(self, env_cls, env_kwargs, agent_kwargs):
         if self.can_be_loaded:
-            print('Loading existing agent from %s' % self.agent_path)
+            print('Loading existing agent from %s' % (self.agent_path + '.zip'))
             return self._load(env_cls, env_kwargs, agent_kwargs)
         else:
             print('Creating new agent...')
@@ -101,7 +101,7 @@ class Experiment:
 
     def plot(self):
         monitor_table = self.folder.get_monitor_table()
-        avg_rew = monitor_table['r']
+        avg_rew = monitor_table['rew_unnormalized']
         return plt.plot(avg_rew)
 
     def reset(self):

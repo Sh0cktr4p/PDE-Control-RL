@@ -102,7 +102,7 @@ class BurgersEnv(VecEnv):
 
             obs = self.reset()
         
-        info = [{'rew_unnormalized': rew[i], 'forces': forces[i].reshape(-1)} for i in range(self.num_envs)]
+        info = [{'rew_unnormalized': rew[i], 'forces': np.abs(forces[i]).sum()} for i in range(self.num_envs)]
 
         self.reward_rms.update(rew)
         rew = (rew - self.reward_rms.mean) / np.sqrt(self.reward_rms.var)
