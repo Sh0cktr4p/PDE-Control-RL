@@ -1,5 +1,6 @@
 from stable_baselines3.common.vec_env import VecEnv, VecEnvWrapper
 from stable_baselines3.common.utils import safe_mean
+from stable_baselines3.common import logger
 from typing import List, Optional, Tuple
 import time
 import csv
@@ -40,10 +41,11 @@ class VecMonitor(VecEnvWrapper):
                 else:
                     filename = filename + '.' + VecMonitor.EXT
             self.file_handler = open(filename, 'at')
-            self.file_handler.write("#%s\n" % json.dumps({"t_start": self.t_start}))
             self.logger = csv.DictWriter(self.file_handler, fieldnames=fieldnames)
-            self.logger.writeheader()
-            self.file_handler.flush()
+            if os.path.getsize(filename) == 0:
+                self.file_handler.write("#%s\n" % json.dumps({"t_start": self.t_start}))
+                self.logger.writeheader()
+                self.file_handler.flush()
         
         self.info_keywords = info_keywords
         self.curr_ep_rewards = None
@@ -89,7 +91,7 @@ class VecMonitor(VecEnvWrapper):
 
         new_infos = list(infos[:])
         for key in self.curr_ep_data:
-            self.curr_ep_data[key] += list(map(lambda d: d[key], infos))
+            self.curr_ep_data[key] += [np.abs(dk).sum() for dk in (map(lambda d: d[key], infos))]
 
         for i in range(len(dones)):
             if dones[i]:
@@ -123,6 +125,8 @@ class VecMonitor(VecEnvWrapper):
                 # Store the average values per rollout
                 self.logger.writerow({k:safe_mean(self.curr_rollout_data[k]) for k in self.curr_rollout_data})
                 self.file_handler.flush()
+                for key in self.info_keywords:
+                    logger.record(key, safe_mean(self.curr_rollout_data[key]))
                 for key in self.curr_rollout_data:
                     self.curr_rollout_data[key] = []
                 self.step_idx_in_rollout = 0

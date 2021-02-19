@@ -22,7 +22,8 @@ class BurgersEnv(VecEnv):
         viscosity: float=0.003, 
         diffusion_substeps: int=1,
         final_reward_factor: float=32, 
-        exp_name: str='v0'
+        reward_rms: Optional[RunningMeanStd]=None,
+        exp_name: str='v0',
     ):
         act_shape = self._get_act_shape(domain.resolution)
         obs_shape = self._get_obs_shape(domain.resolution)
@@ -42,7 +43,10 @@ class BurgersEnv(VecEnv):
         self.viscosity = viscosity
         self.physics = phiflow.Burgers(diffusion_substeps=diffusion_substeps)
         self.final_reward_factor = final_reward_factor
-        self.reward_rms = RunningMeanStd()
+        self.reward_rms = reward_rms
+        if self.reward_rms is None:
+            print('Using new running mean for reward')
+            self.reward_rms = RunningMeanStd()
         self.actions = None
         self.test_mode = False
         self.init_state = None
@@ -85,7 +89,6 @@ class BurgersEnv(VecEnv):
         obs = self._build_obs()
         rew = self._build_rew(forces)
         done = np.full((self.num_envs,), self.step_idx == self.step_count)
-
         if self.step_idx == self.step_count:
             self.ep_idx += 1
 
@@ -99,7 +102,7 @@ class BurgersEnv(VecEnv):
 
             obs = self.reset()
         
-        info = [{'r_u': rew[i], 'f': forces.reshape(self.num_envs, -1)} for i in range(self.num_envs)]
+        info = [{'rew_unnormalized': rew[i], 'forces': forces[i].reshape(-1)} for i in range(self.num_envs)]
 
         self.reward_rms.update(rew)
         rew = (rew - self.reward_rms.mean) / np.sqrt(self.reward_rms.var)
@@ -108,6 +111,9 @@ class BurgersEnv(VecEnv):
 
     def close(self) -> None:
         pass
+
+    def disable_test_mode_wtf(self):
+        self.test_mode = False
 
     def render(self, mode: str='live') -> None:
         if not self.test_mode:

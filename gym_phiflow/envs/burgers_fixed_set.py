@@ -11,28 +11,28 @@ class BurgersFixedSetEnv(BurgersEnv):
         dataset = phiflow.Dataset.load(data_path, data_range)
         self.test_mode = test_mode        
         self.frames = self._get_frames_from_dataset(dataset)
-        print(self.frames.shape)
         self.dataset_idx = -1
 
     def _get_init_state(self):
         #self.dataset_idx += 1
-        state = self._get_state_of_curr_sim_at_frame(0)
+        state = self._get_state_of_sims_at_frame(0)
         return state
 
     def _get_gt_forces(self):
-        frame_0 = self._get_state_of_curr_sim_at_frame(0)
-        frame_1 = self._get_state_of_curr_sim_at_frame(1)
+        frame_0 = self._get_state_of_sims_at_frame(0)
+        frame_1 = self._get_state_of_sims_at_frame(1)
         forces = frame_1.velocity - self.physics.step(frame_0, self.dt).velocity
         return phiflow.FieldEffect(forces, ['velocity'])
 
     def _get_goal_state(self):
-        return self._get_state_of_curr_sim_at_frame(-1)
+        return self._get_state_of_sims_at_frame(-1)
 
     def _step_gt(self):
-        return self._get_state_of_curr_sim_at_frame(self.step_idx)
+        return self._get_state_of_sims_at_frame(self.step_idx)
     
-    def _get_state_of_curr_sim_at_frame(self, frame_idx):
-        return phiflow.BurgersVelocity(self.domain, self.frames[self.dataset_idx][frame_idx], viscosity=self.viscosity)
+    def _get_state_of_sims_at_frame(self, frame_idx):
+        return phiflow.BurgersVelocity(self.domain, self.frames[frame_idx], viscosity=self.viscosity)
 
     def _get_frames_from_dataset(self, dataset):
-        return np.array([list(source.get('burgers_velocity', range(self.step_count+1))) for source in dataset.sources], dtype=np.float32)
+        frames = np.array([list(source.get('burgers_velocity', range(self.step_count+1))) for source in dataset.sources], dtype=np.float32).squeeze(2)
+        return np.swapaxes(frames, 0, 1)

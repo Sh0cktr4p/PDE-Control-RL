@@ -50,7 +50,8 @@ def get_unet_kwargs():
 
 
 def get_paths(env_name, path):
-    experiment_path = os.path.join(base_path, env_name, path)
+    #experiment_path = os.path.join(base_path, env_name, path)
+    experiment_path = path
     monitor_path = os.path.join(experiment_path, monitor_filename)
     agent_path = os.path.join(experiment_path, agent_filename)
     agent_temp_path = os.path.join(experiment_path, agent_temp_filename)
@@ -96,7 +97,7 @@ def create(env, ppo_hparams, ppo_hparams_path):
     return agent
 
 
-def store(agent, agent_path):
+def store(agent, rew_rms, agent_path):
     agent.save(agent_path)
 
 
@@ -158,7 +159,7 @@ def train(env_name, path, env_hparams, ppo_hparams, learn_hparams, rollouts_betw
 
 def get_env_hparams(hparams):
     env_hparam_list = [
-        'n_envs',
+        'num_envs',
     ]
     return filter_dict(hparams, env_hparam_list)
 
