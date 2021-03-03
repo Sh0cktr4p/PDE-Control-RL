@@ -8,6 +8,8 @@ from gym_phiflow.envs.burgers_env import BurgersEnv
 from gym_phiflow.envs.burgers_fixed_set import BurgersFixedSetEnv
 from stable_baselines3.ppo import PPO
 from stable_baselines3.common.running_mean_std import RunningMeanStd
+from stable_baselines3.common import logger
+from stable_baselines3.common.callbacks import CallbackList
 from function_callback import EveryNRolloutsFunctionCallback
 from policy import CustomActorCriticPolicy
 from networks import RES_UNET, CNN_FUNNEL
@@ -87,14 +89,14 @@ class ExperimentFolder:
 
 
 class Experiment:
-    def __init__(self, name, env_cls, env_kwargs, agent_kwargs, steps_per_rollout, num_envs):
+    def __init__(self, name, env_cls, env_kwargs, agent_kwargs, steps_per_rollout, num_envs, callbacks=[]):
         self.folder = ExperimentFolder(name)
         self.agent, self.env = self.folder.get(env_cls, env_kwargs, agent_kwargs)
         self.steps_per_rollout = steps_per_rollout
         self.num_envs = num_envs
 
         store = lambda _: self.folder.store(self.agent, env_kwargs, agent_kwargs)
-        self.get_callback = lambda save_freq: EveryNRolloutsFunctionCallback(save_freq, store)
+        self.get_callback = lambda save_freq: CallbackList(callbacks + [EveryNRolloutsFunctionCallback(save_freq, store)])
 
     def train(self, n_rollouts, save_freq):
         self.agent.learn(total_timesteps=n_rollouts * self.steps_per_rollout * self.num_envs, callback=self.get_callback(save_freq))
@@ -130,7 +132,11 @@ class BurgersTraining(Experiment):
         n_epochs,
         learning_rate,
         batch_size,
+        test_path=None,
+        test_range=range(100),
     ):   
+        callbacks = []
+
         env_kwargs = dict(
             num_envs=n_envs,
             step_count=step_count,
@@ -141,6 +147,18 @@ class BurgersTraining(Experiment):
             final_reward_factor=final_reward_factor,
             exp_name=exp_name,
         )
+
+        test_env_kwargs = {k:env_kwargs[k] for k in env_kwargs if k != 'num_envs'}
+
+        if test_path is not None:
+            self.test_env = BurgersFixedSetEnv(
+                data_path=test_path,
+                data_range=test_range,
+                test_mode=True,
+                num_envs=len(test_range),
+                **test_env_kwargs
+            )
+            callbacks.append(EveryNRolloutsFunctionCallback(1, lambda _: self.evaluate_test_set()))
 
         # Only add a fresh running mean to new experiments
         if not ExperimentFolder.exists(exp_name):
@@ -166,7 +184,26 @@ class BurgersTraining(Experiment):
             batch_size=batch_size,
         )
 
-        super().__init__(exp_name, BurgersEnv, env_kwargs, agent_kwargs, steps_per_rollout, n_envs)
+        super().__init__(exp_name, BurgersEnv, env_kwargs, agent_kwargs, steps_per_rollout, n_envs, callbacks)
+
+    def evaluate_test_set(self):
+        self.agent.set_env(self.test_env)
+
+        obs = self.test_env.reset()
+        done = False
+        forces = 0
+
+        while not done:
+            act = self.predict(obs)
+            obs, _, dones, infos = self.test_env.step(act)
+            done = dones[0]
+            forces += np.sum([infos[i]['forces'] for i in range(len(infos))])
+            print(forces)
+
+        logger.record('test set forces', forces)
+        print('Forces on test set: %f' % forces)
+
+        self.agent.set_env(self.env)
 
 
 class BurgersEvaluation(Experiment):

@@ -91,7 +91,7 @@ class VecMonitor(VecEnvWrapper):
 
         new_infos = list(infos[:])
         for key in self.curr_ep_data:
-            self.curr_ep_data[key] += [dk for dk in (map(lambda d: d[key], infos))]
+            self.curr_ep_data[key] += [dk for dk in map(lambda d: d[key], infos)]
 
         for i in range(len(dones)):
             if dones[i]:

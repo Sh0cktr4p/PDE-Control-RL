@@ -7,8 +7,8 @@ class EveryNRolloutsFunctionCallback(EventCallback):
         self.rollout_idx = 0
         self.n_rollouts = n_rollouts
 
-    def _on_rollout_start(self):
-        if self.rollout_idx % self.n_rollouts == 0:
+    def _on_rollout_end(self):
+        if self.rollout_idx % self.n_rollouts == self.n_rollouts - 1:
             self._on_event()
         self.rollout_idx += 1
 
