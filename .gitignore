@@ -1,9 +1,7 @@
 tensorboard/
-models/
-gym_foo.egg-info
-*.pyc
+__pycache__
 .vscode/
+*.pyc
 *.directory/
-gym_phiflow/notebooks/burgers-models/
 gym_phiflow/notebooks/forced-burgers-clash/
 gym_phiflow/notebooks/.ipynb_checkpoints/
