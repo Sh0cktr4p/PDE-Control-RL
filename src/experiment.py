@@ -101,7 +101,7 @@ class Experiment:
         self.get_callback = lambda save_freq: CallbackList(callbacks + [EveryNRolloutsPlusStartFinishFunctionCallback(save_freq, store)])
 
     def train(self, n_rollouts, save_freq):
-        self.agent.learn(total_timesteps=n_rollouts * self.steps_per_rollout * self.num_envs, callback=self.get_callback(save_freq))
+        self.agent.learn(total_timesteps=n_rollouts * self.steps_per_rollout * self.num_envs, callback=self.get_callback(save_freq), reset_num_timesteps=True)
 
     def plot(self):
         monitor_table = self.folder.get_monitor_table()
