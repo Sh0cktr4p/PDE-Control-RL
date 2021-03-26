@@ -13,7 +13,7 @@ from envs.vec_monitor import VecMonitor
 from envs.burgers_env import BurgersEnv
 from envs.burgers_fixed_set import BurgersFixedSetEnv
 
-from function_callback import EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback
+from callbacks import EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback, TimeConsumptionMonitorCallback
 from policy import CustomActorCriticPolicy
 from networks import RES_UNET, CNN_FUNNEL
 
@@ -98,7 +98,7 @@ class Experiment:
         self.num_envs = num_envs
 
         store = lambda _: self.folder.store(self.agent, env_kwargs, agent_kwargs)
-        self.get_callback = lambda save_freq: CallbackList(callbacks + [EveryNRolloutsPlusStartFinishFunctionCallback(save_freq, store)])
+        self.get_callback = lambda save_freq: CallbackList(callbacks)# + [EveryNRolloutsPlusStartFinishFunctionCallback(save_freq, store)])
 
     def train(self, n_rollouts, save_freq):
         self.agent.learn(total_timesteps=n_rollouts * self.steps_per_rollout * self.num_envs, callback=self.get_callback(save_freq), reset_num_timesteps=True)
@@ -161,6 +161,8 @@ class BurgersTraining(Experiment):
                 **test_env_kwargs
             )
             callbacks.append(EveryNRolloutsFunctionCallback(1, lambda _: self._record_test_set_forces()))
+
+        callbacks.append(TimeConsumptionMonitorCallback())
 
         # Only add a fresh running mean to new experiments
         if not ExperimentFolder.exists(exp_name):
