@@ -1,3 +1,0 @@
-Forces seem relatively high
-    => Could stem from high weighting factor
-Still some improvements 

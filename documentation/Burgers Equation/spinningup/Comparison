@@ -1,9 +1,0 @@
--Training duration
-
-
-
--Force amount
-    -Comparison overall forces supervised - reinforcement - ground truth
-        -Mean, Standard deviation, Outliers
-    -Comparison individual trajectories
-        -Plot: x: Ground Truth, y: DL method

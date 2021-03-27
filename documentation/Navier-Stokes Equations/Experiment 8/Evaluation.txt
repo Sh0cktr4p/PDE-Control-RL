@@ -1,7 +1,0 @@
- 
--Significantly lower forces than in the previous experiment, but the
-        network still seems to approximately recognize what to do
--Again the clockwise swirl
--Overshooting, no fixation of the fluid at the target shape even though 
-        it is in the corner
--Reward progress suggests roughly continuous improvement

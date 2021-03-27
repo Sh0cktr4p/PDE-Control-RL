@@ -1,5 +1,0 @@
--Even lower reward variance even though the epochs again contained only
-        3200 steps each
-    => Amount of forces in the reward has strong influence on the
-            variance
--Network does not seem to learn what to do nor how to do it

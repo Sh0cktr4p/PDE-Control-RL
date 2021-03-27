@@ -1,4 +1,5 @@
 tensorboard/
+documentation/
 __pycache__
 .vscode/
 *.pyc
