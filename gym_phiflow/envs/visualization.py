@@ -166,33 +166,9 @@ class GifPlotter(FileViz):
 		self.data = []
 
 	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
-<<<<<<< HEAD
-		return self.render_gif(fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, False)
-
-	def render_png(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
-		fields = fields[0:3]
-		labels = labels[0:3]
-		self.data.append(fields)
-
-		if step_idx == ep_len - 1:
-			for i in range(len(labels)):
-				fig = plt.figure()
-				plt.ylim(-1 * max_value if signed else 0, max_value)
-				x = np.arange(self.data[0][0].size)
-				colors = ['#%x%x%x%xff' % (c, c, 15-c, 15-c) for c in [v // 2 for v in range(32)]]
-				plots = [plt.plot(x, f, c=c)[0] for (f, c) in zip([fields[i] for fields in self.data], colors)]
-
-				path = os.path.join(self.image_dir, '%s%04d_%s.png' % (plot_name, ep_idx, labels[i]))
-				plt.savefig(path)
-				plt.close()
-			self.data = []
-
-	def render_gif(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):		
-=======
 		#if step_idx == ep_len:
 		#	ep_idx -= 1
 		
->>>>>>> installable
 		fig, _ = plot_fields(fields, labels, max_value, signed)
 
 		path = os.path.join(self.image_dir, '%s%04d_%04d.png' % (plot_name, ep_idx, step_idx))
