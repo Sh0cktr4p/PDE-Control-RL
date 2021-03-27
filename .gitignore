@@ -2,3 +2,7 @@ output/
 old_outputs/
 gym_foo.egg-info
 *.pyc
+__pycache__
+.vscode/
+notebooks/forced-burgers-clash/
+.ipynb*
