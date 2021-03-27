@@ -1,7 +1,0 @@
-README.md
-setup.py
-gym_phiflow.egg-info/PKG-INFO
-gym_phiflow.egg-info/SOURCES.txt
-gym_phiflow.egg-info/dependency_links.txt
-gym_phiflow.egg-info/requires.txt
-gym_phiflow.egg-info/top_level.txt

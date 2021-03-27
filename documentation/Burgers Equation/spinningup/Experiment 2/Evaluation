@@ -1,0 +1,8 @@
+-Network often generates too less forces to approximate the target field
+        well
+    => Mainly when the target differs strongly from the result of an
+            uncontrolled simulation
+        => In many cases those two do not differ very much
+            => Might be problematic for l2-loss
+    => Field proximity/force strength reward parameters seem off balance
+    => Should experiment with alternative weightings

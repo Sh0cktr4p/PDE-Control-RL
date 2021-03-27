@@ -1,0 +1,9 @@
+-Network roughly manages to approximate target field
+-Very quick transition, as to be expected if forces are not considered
+-Approximation appears "spiky", neighboring field values often on
+        opposite sides of the corresponding target field values
+    => Could smooth out with longer training
+    => Network seems able to comprehend the goal
+-Rewards still increase after 800 epochs, sometimes large dips in 
+        performance
+    => Probably exploration by the network

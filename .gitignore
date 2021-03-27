@@ -1,6 +1,6 @@
-output/
-old_outputs/
-gym_foo.egg-info
+tensorboard/
+__pycache__
+.vscode/
 *.pyc
 __pycache__
 .vscode/

@@ -1,0 +1,95 @@
+ 
+-Begin with Navier-Stokes complete control scenarios
+    -Network can apply forces to every parameter in the 2d velocity field
+    -Goal: Transfer density values from one shape to another
+    -Two different kinds of reward functions:
+        -Consider the absolute or squared distance of each density value
+                between current and goal field
+        -Generate a signed distance function of the goal field and      
+                multiply each density value in the current field with the 
+                corresponding distance to the target field
+        -Field distance and difference can be applied either at every 
+                step or the end of each trajectory
+        -As further modification, the amount of forces created can be 
+                subtracted from the reward
+    -First experiments conducted on a 15x15 density field, combined
+            with a 16x16x2 velocity field
+    -Shapes contained squares and rhombes of different sizes and 
+            locations
+    -Observation space contained the current density and velocity fields 
+            in addition to the target density field
+    -Network:
+        -based on U-Net architecture 
+        -no batch norm, no drop-out, at each level symmetric padding at 
+                the 3x3 convolutions, maxpool to decrease resolution, 
+                transpose convolutions for upsampling
+        -3 levels (3x pooling)
+            
+Experiment 1:
+    -Forces not included in reward
+    -Squared field difference, every time step
+    -Training for 100 epochs
+    -Gamma: 0.96, pi lr: 1e-3, vf lr: 1e-3
+    
+Experiment 2:
+    -Forces included in reward, factor: 0.1
+    -Squared field difference, end of trajectory
+    -Training for 400 epochs
+    -Gamma: 0.94, pi lr: 4e-4, vf lr: 1e-3
+
+Experiment 3:
+    -Forces not included in reward          TODO: check!!
+    -Squared distance to goal shape multiplied by density values,
+            every time step
+    -Training for 200 epochs
+    -Gamma: 0.94, pi lr: 4e-4, vf lr: 1e-3
+
+    
+-Reduce complexity of experiments
+    -Smaller fields: 7x7 density with 8x8x2 velocity
+    -Reduced range of shapes: only 2x2 squares at random positions
+    -Reduced gamma hyperparameter: lower focus on long time rewards
+    -2 unet levels (2x pooling)
+
+Experiment 4:
+    -Forces not included in reward
+    -Squared field difference, every time step
+    -Training for 400 epochs
+    -Gamma: 0.94, pi lr: 4e-4, vf lr: 1e-3
+
+Experiment 5:
+    -Forces in reward, but reduced influence
+    -Squared field difference, every time step
+    -Training for 400 epochs
+    -Gamma: 0.9, pi lr: 2e-4, vf lr: 5e-4
+    -Batch size: 4800 steps per epoch
+    
+Experiment 6:
+    -Forces in reward, increased influence
+    -Squared field difference, every time step
+    -Training for 500 epochs
+    -Gamma: 0.94, pi lr: 4e-4, vf lr: 1e-3
+    
+
+-Further reduce complexity of experiments
+    -Initial and goal shapes at fixed positions
+    
+Experiment 7:
+    -Forces not in reward
+    -Squared field difference, every time step
+    -Training for 300 epochs
+    -Gamma: 0.94, pi lr: 4e-4, vf lr: 1e-3
+    
+Experiment 8:
+    -Forces in reward
+    -Squared field difference, every time step
+    -Training for 250 epochs
+    
+    -Gamma: 0.94, pi lr: 4e-4, vf lr: 1e-3
+    
+    
+-Fixed the implementation for U-Net (Tensors were interpreted 
+        incorrectly, missing a transpose operation)
+        
+Experiment 9:
+    -0.02 forces factor

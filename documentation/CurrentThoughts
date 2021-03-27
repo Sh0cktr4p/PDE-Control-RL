@@ -1,0 +1,106 @@
+Burgers' Equation:
+    gaussian distributed forces in the target field seem to significantly
+        increase the problem difficulty.
+    when the forces and the proximity rewards are weighted 1:1, the
+        network seems to generate very low forces
+        => might also be fueled by the fact that l2-distances are used
+            for field differences
+            => but: l2 distances also used with forces
+        => When forces are not relevant for reward, the target field can
+            actually be reached approximately
+            => Try different weightings of the different reward values
+        => Alternative approach: in the last timestep subtract the amount
+                of forces that would be necessary to reach the target
+                state from the state at that point from the reward
+            => Perfect arrival at goal enforced, up to the network to
+                    decide when to do what
+            => More simple reward function, does only contain amount of 
+                    forces needed
+            => But: would this really be any different actually?
+                => Scaled by the time delta instead of the episode
+                        length I guess
+    using the same network architecture as in the supervised approach
+        by Philipp could also be interesting
+        => But: no batch norm inside the residual blocks, because they
+            do not seem to work in reinforcement learning
+        => Network seems to be too long and thin for efficient learning
+            => Check again the implementation, the show_graph output
+                looks weird
+            => Get some experiment working with the old u-net (tweaking 
+                the reward function, etc) and then apply the new network 
+                to this task, see how it performs, and how it could be
+                modified to work better
+    why am I always using (almost) the same network for actor and critic?
+        => Research on this topic, what could be good reasons to keep 
+            them the same
+        => Try different network architectures for the different
+            networks, as the value network does not work with fully
+            convolutional networks in the first place
+    how do fully convolutional and fully connected networks compare with
+        gaussian distributed forces?
+    what about 2d Burgers' Equation?
+    What about setting the reward to be the difference from the current 
+            ground truth at any step
+
+    
+Navier-Stokes equations:
+    In most conducted experiments, the network just seems to try to swirl
+        the fluid around, presumably in order to evenly distribute it 
+        across the field, or creep aimlessly out of the initial shape
+        => Most of the field is outside the target shape
+            => When all values are close to zero, most values are close
+                to their target
+                => Local minimum, otherwise would have to exert
+                    significantly higher forces
+                => If forces are not considered, the network generates
+                    too large forces for fine-grained control
+        => Ideas:
+            => Handle reward for fluid inside and outside the target 
+                shape differently
+                => For example: weight positive and negative differences
+                    according to the relative area of the target shape
+            => Adaptive reward for forces, punishment increases during
+                training
+    The SDF reward system seems to be too difficult for the network to
+        comprehend
+        => Alternatively: somehow learning rate a lot too high
+            => Would if it is the case make training even slowerer
+    Experiment with different network architectures
+        => Use a U-Net similar to that in Philipps paper
+        => Different networks for actor and critic
+    Find ways to further decrease problem complexity
+        => Maybe even with 1d fields?
+        => Smaller fields maybe?
+        => Fixed positions?
+            => Seemed not that good in the past, as it gives little
+                variety in training
+        => Sources/Targets in single grid cell
+        => Sources/Targets each one half/one third etc of the field
+    Try resampling the velocity fields with velocity_field.at(domain) instead of padding and stacking
+    Curiosity
+        => Agent fails to explore efficiently
+        => Might counteract reward sparsity
+        => Might counteract demotivation because of force penalty
+
+            
+Further reading:
+    What exactly is a differential solver doing, how does it extend over
+        multiple time steps?
+    How does the critic work exactly in RL?
+    Batch Norm in PyTorch, how could it be applied to PPO RL with SpinningUp
+    
+    
+            
+            
+            
+Long-term goals:
+    => Compare the results (precision, required forces, visual      
+        appearance, etc) of the reinforcement and supervised learning 
+        approaches
+    => Get the Navier-Stokes experiments to work on a problem with
+        reduced complexity and see how far it can be scaled in the
+        direction of the supervised learning approach results
+    Additionally:
+        => Compare different reinforcement learning algorithms
+        => Experiment with pretraining, etc
+        => 
