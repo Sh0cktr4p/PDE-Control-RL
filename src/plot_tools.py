@@ -8,6 +8,7 @@ def compare_trajectories(
     control_force_estimator,
     index_in_set,
 ):
+    step_count = ground_truth.shape[0]
     fig, axs = plt.subplots(2, 2, figsize=(12.8, 9.6))
     axs[0, 0].set_title('Ground Truth')
     axs[0, 1].set_title('Uncontrolled')
@@ -49,3 +50,5 @@ def compare_trajectories(
         plot((0,1), unc_frames)
         plot((1,0), rl_frames)
         plot((1,1), cfe_frames)
+
+

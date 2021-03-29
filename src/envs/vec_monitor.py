@@ -66,9 +66,6 @@ class VecMonitor(VecEnvWrapper):
         Calls the vectorized environment reset.
         :return: the first observation of the vectorized environments
         '''
-
-        print('resetto')
-        
         self.needs_reset = False
         obs = self.venv.reset()
         self.curr_ep_rewards = np.zeros(self.num_envs, dtype=np.float32)
