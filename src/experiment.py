@@ -13,7 +13,7 @@ from envs.vec_monitor import VecMonitor
 from envs.burgers_env import BurgersEnv
 from envs.burgers_fixed_set import BurgersFixedSetEnv
 
-from callbacks import EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback, TimeConsumptionMonitorCallback
+from callbacks import EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback
 from policy import CustomActorCriticPolicy
 from networks import RES_UNET, CNN_FUNNEL
 

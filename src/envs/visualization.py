@@ -1,8 +1,5 @@
-import time
-import sys
 import os
 import numpy as np
-import pyglet
 import phi.flow as phiflow
 import matplotlib.pyplot as plt
 import matplotlib.patches as pch
