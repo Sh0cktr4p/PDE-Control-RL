@@ -24,8 +24,8 @@ class ExperimentFolder:
     kwargs_filename = 'kwargs'
     tensorboard_filename = 'tensorboard-log'
 
-    def __init__(self, name):
-        self.store_path = name
+    def __init__(self, path):
+        self.store_path = path
         self.agent_path = os.path.join(self.store_path, self.agent_filename)
         self.monitor_path = os.path.join(self.store_path, self.monitor_filename)
         self.kwargs_path = os.path.join(self.store_path, self.kwargs_filename)
@@ -39,8 +39,7 @@ class ExperimentFolder:
         return os.path.exists(self.agent_path + '.zip')
 
     @staticmethod
-    def exists(name):
-        path = name
+    def exists(path):
         return os.path.exists(path)
 
     def store_agent_only(self, agent):
@@ -91,24 +90,24 @@ class ExperimentFolder:
 
 
 class Experiment:
-    def __init__(self, name, env_cls, env_kwargs, agent_kwargs, steps_per_rollout, num_envs, callbacks=[]):
-        self.folder = ExperimentFolder(name)
+    def __init__(self, path, env_cls, env_kwargs, agent_kwargs, steps_per_rollout, num_envs, callbacks=[]):
+        self.folder = ExperimentFolder(path)
         self.agent, self.env = self.folder.get(env_cls, env_kwargs, agent_kwargs)
         self.steps_per_rollout = steps_per_rollout
         self.num_envs = num_envs
 
         store = lambda _: self.folder.store(self.agent, env_kwargs, agent_kwargs)
-        self.get_callback = lambda save_freq: CallbackList(callbacks)# + [EveryNRolloutsPlusStartFinishFunctionCallback(save_freq, store)])
+        self.get_callback = lambda save_freq: CallbackList(callbacks + [EveryNRolloutsPlusStartFinishFunctionCallback(save_freq, store)])
 
     def train(self, n_rollouts, save_freq):
-        self.agent.learn(total_timesteps=n_rollouts * self.steps_per_rollout * self.num_envs, callback=self.get_callback(save_freq), reset_num_timesteps=True)
+        self.agent.learn(total_timesteps=n_rollouts * self.steps_per_rollout * self.num_envs, callback=self.get_callback(save_freq))
 
     def plot(self):
         monitor_table = self.folder.get_monitor_table()
         avg_rew = monitor_table['rew_unnormalized']
         return plt.plot(avg_rew)
 
-    def reset(self):
+    def reset_env(self):
         return self.env.reset()
 
     def predict(self, obs, deterministic=True):
@@ -122,7 +121,7 @@ class Experiment:
 class BurgersTraining(Experiment):
     def __init__(
         self, 
-        exp_name,
+        path,
         domain,
         viscosity,
         step_count, 
@@ -134,7 +133,8 @@ class BurgersTraining(Experiment):
         n_epochs,
         learning_rate,
         batch_size,
-        test_path=None,
+        data_path=None,
+        val_range=range(100, 200),
         test_range=range(100),
     ):   
         callbacks = []
@@ -147,25 +147,29 @@ class BurgersTraining(Experiment):
             viscosity=viscosity,
             diffusion_substeps=diffusion_substeps,
             final_reward_factor=final_reward_factor,
-            exp_name=exp_name,
+            exp_name=path,
         )
 
-        test_env_kwargs = {k:env_kwargs[k] for k in env_kwargs if k != 'num_envs'}
+        evaluation_env_kwargs = {k:env_kwargs[k] for k in env_kwargs if k != 'num_envs'}
 
-        if test_path is not None:
-            self.test_env = BurgersFixedSetEnv(
-                data_path=test_path,
-                data_range=test_range,
-                test_mode=True,
-                num_envs=len(test_range),
-                **test_env_kwargs
+        if data_path is not None:
+            self.val_env = BurgersFixedSetEnv(
+                data_path=data_path,
+                data_range=val_range,
+                num_envs=len(val_range),
+                **evaluation_env_kwargs
             )
-            callbacks.append(EveryNRolloutsFunctionCallback(1, lambda _: self._record_test_set_forces()))
+            self.test_env = BurgersFixedSetEnv(
+                data_path=data_path,
+                data_range=test_range,
+                num_envs=len(test_range),
+                **evaluation_env_kwargs
+            )
 
-        callbacks.append(TimeConsumptionMonitorCallback())
+            callbacks.append(EveryNRolloutsFunctionCallback(1, lambda _: self._record_forces(self.val_env)))
 
         # Only add a fresh running mean to new experiments
-        if not ExperimentFolder.exists(exp_name):
+        if not ExperimentFolder.exists(path):
             env_kwargs['reward_rms'] = RunningMeanStd()
 
         agent_kwargs= dict(
@@ -188,25 +192,27 @@ class BurgersTraining(Experiment):
             batch_size=batch_size,
         )
 
-        #env_kwargs['data_path'] = test_path
-        #env_kwargs['data_range'] = test_range
-        #env_kwargs['test_mode'] = False
-        #super().__init__(exp_name, BurgersFixedSetEnv, env_kwargs, agent_kwargs, steps_per_rollout, n_envs, callbacks)
-        super().__init__(exp_name, BurgersEnv, env_kwargs, agent_kwargs, steps_per_rollout, n_envs, callbacks)
+        super().__init__(path, BurgersEnv, env_kwargs, agent_kwargs, steps_per_rollout, n_envs, callbacks)
 
     def infer_test_set_forces(self):
-        self.agent.set_env(self.test_env)
+        return self._infer_forces(self.test_env)
 
-        obs = self.test_env.reset()
+    def infer_test_set_frames(self):
+        return self._infer_frames(self.test_env)
+
+    def _infer_forces(self, env: BurgersFixedSetEnv):
+        self.agent.set_env(env)
+
+        obs = env.reset()
         done = False
-        forces = np.zeros((self.test_env.num_envs,), dtype=np.float32)
+        forces = np.zeros((env.num_envs,), dtype=np.float32)
 
         i = 0
 
         while not done:
             i += 1
             act = self.predict(obs, False)
-            obs, _, dones, infos = self.test_env.step(act)
+            obs, _, dones, infos = env.step(act)
             done = dones[0]
             forces += [infos[i]['forces'] for i in range(len(infos))]
 
@@ -214,25 +220,25 @@ class BurgersTraining(Experiment):
 
         return forces
 
-    def infer_test_set_frames(self):
-        self.agent.set_env(self.test_env)
+    def _infer_frames(self, env: BurgersFixedSetEnv):
+        self.agent.set_env(env)
 
-        obs = np.array(self.test_env.reset())
+        obs = np.array(env.reset())
         init = obs[:, :, 0]
         goal = obs[:, :, 1]
-        gt_frames = self.test_env.frames
+        gt_frames = env.frames
         cont_frames = [init]
         pass_frames = [init]
 
-        pass_state = self.test_env._get_init_state()
+        pass_state = env._get_init_state()
 
         done = False
         infos = []
 
         while not done:
             act = self.predict(obs)
-            obs, _, dones, infos = self.test_env.step(act)
-            pass_state = self.test_env._step_sim(pass_state, ())
+            obs, _, dones, infos = env.step(act)
+            pass_state = env._step_sim(pass_state, ())
             pass_frames.append(pass_state.velocity.data)
             done = dones[0]
             if not done:
@@ -244,66 +250,9 @@ class BurgersTraining(Experiment):
 
         return cont_frames, gt_frames, pass_frames
 
-    def _record_test_set_forces(self):
-        forces = self.infer_test_set_forces()
-        force_avg = np.sum(forces) / self.test_env.num_envs
+    def _record_forces(self, env: BurgersFixedSetEnv):
+        forces = self._infer_forces(env)
+        force_avg = np.sum(forces) / env.num_envs
 
-        logger.record('test set forces', force_avg)
-        print('Forces on test set: %f' % force_avg)
-
-
-class BurgersEvaluation(Experiment):
-    def __init__(self, exp_name, data_path, data_range, test_mode=True):
-        env_kwargs = dict(
-            num_envs=10,
-            data_path=data_path, 
-            data_range=data_range,
-            test_mode=test_mode,
-        )
-        assert ExperimentFolder.exists(exp_name)
-
-        agent_kwargs = dict(
-        )
-
-        super().__init__(exp_name, BurgersFixedSetEnv, env_kwargs, agent_kwargs, 32, len(data_range))
-
-        self.test_mode = test_mode
-
-    def train(self, n_rollouts, save_freq):
-        if self.test_mode:
-            # Don't store anything if the agent is only to be evaluated.
-            callback = None 
-        else:
-            # Don't store kwargs to avoid errors when continuing training afterwards with other env
-            store_fn = lambda _: self.folder.store_agent_only(self.agent)
-            callback = EveryNRolloutsFunctionCallback(save_freq, store_fn)
-
-        self.agent.learn(total_timesteps=n_rollouts * self.steps_per_rollout, callback=callback)
-
-    def infer_all_frames(self):
-        obs = np.array(self.reset())
-        init = obs[:, :, 0]
-        goal = obs[:, :, 1]
-        gt_frames = self.env.frames
-        cont_frames = [init]
-        pass_frames = [init]
-
-        pass_state = self.env._get_init_state()
-
-        done = False
-        infos = []
-
-        while not done:
-            act = self.predict(obs)
-            obs, _, dones, infos = self.step_env(act)
-            pass_state = self.env._step_sim(pass_state, ())
-            pass_frames.append(pass_state.velocity.data)
-            done = dones[0]
-            if not done:
-                cont_frames.append(np.array(obs)[:,:,0])
-            
-        forces = [infos[i]['episode']['forces'] for i in range(len(infos))]
-
-        cont_frames.append(goal)
-
-        return cont_frames, gt_frames, pass_frames, forces
+        logger.record('data set forces', force_avg)
+        print('Forces on data set: %f' % force_avg)
