@@ -3,6 +3,7 @@ import numpy as np
 import traceback
 from typing import List
 
+
 class FCN(torch.nn.Module):
 
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
@@ -272,79 +273,6 @@ class SIMP_UNET(torch.nn.Module):
 		return x
 
 
-class MOD_UNET(torch.nn.Module):
-	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
-		super().__init__()
-		num_levels = len(sizes)
-
-		input_channels = input_shape[-1]
-		pad_width = sum([2**i for i in range(num_levels)])
-
-		output_channels = max(1, output_dim // np.prod(input_shape[:-1]))
-
-		input_dim = len(input_shape) - 1
-
-		if input_dim == 1:
-			conv = torch.nn.Conv1d
-			pad = OneSidedPadding1d
-			perm_fwd = Permute([0, 2, 1])
-			perm_bwd = Permute([0, 2, 1])
-			upsample_mode = 'linear'
-		elif input_dim == 2:
-			conv = torch.nn.Conv2d
-			pad = OneSidedPadding2d
-			perm_fwd = Permute([0, 3, 1, 2])
-			perm_bwd = Permute([0, 2, 3, 1])
-			upsample_mode = 'bilinear'
-		else:
-			raise NotImplementedError()
-
-		fcs = sizes + [input_channels]
-
-		print("input shape: %s" % str(input_shape))
-
-		print("output dim: %s" % str(output_dim))
-
-		print("filter channels at different level(deep to shallow): %s" % str(fcs))
-
-		self.net = torch.nn.Sequential(
-			ResBlock(fcs[0], 3, 1, 1, conv, activation),
-			ResBlock(fcs[0], 3, 1, 1, conv, activation),
-			ResBlock(fcs[0], 3, 1, 1, conv, activation),
-		)
-
-		rows_to_shave = 0
-		for i in range(num_levels - 1):
-			f_enc_in = fcs[i+1]
-			f_enc_out = fcs[i]
-			f_dec_in = fcs[0] if i == 0 else 16
-			f_dec_out = 16
-			print("%2i -> %2i   %2i -> %2i" % (f_enc_in, f_enc_in, f_enc_in, f_dec_out))
-			print("       |     %2i      " % (f_dec_in))
-			print("       |      |      ")
-			print("      %2i -> %2i      \n" % (f_enc_out, f_dec_in))
-			rows_to_shave += 2 ** i
-			print('Rows to shave: %i' % rows_to_shave)
-			self.net = UnetLayer(f_enc_in, f_enc_out, f_dec_in, f_dec_out, self.net, conv, pad, activation, upsample_mode, rows_to_shave)
-
-		print('pad width: %i' % pad_width)
-		#rows_to_shave += 2 ** (num_levels - 1)
-		# Outermost layer has no skip connection and a shorter decoder
-		self.net = torch.nn.Sequential(EncoderResBlock(fcs[-1], fcs[-2], conv, activation), self.net, DecoderWithoutCombiningAction(16, output_channels, conv, pad, activation, upsample_mode))
-
-		self.net = torch.nn.Sequential(perm_fwd, pad(amount=pad_width), self.net, perm_bwd, torch.nn.Flatten())
-
-		if output_dim == 1:
-			self.appendix = torch.nn.Linear(np.prod(input_shape[:-1]), output_dim)
-		else:
-			self.appendix = torch.nn.Identity()
-
-	def forward(self, x):
-		x = self.net(x)
-		x = self.appendix(x)
-		return x
-
-
 class RES_UNET(torch.nn.Module):
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
@@ -454,47 +382,6 @@ class RES_UNET(torch.nn.Module):
 		return y
 
 
-class RNN(torch.nn.Module):
-	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
-		super().__init__()
-		print('Using Recurrent Network')
-		self.x_size = np.prod(input_shape)
-		self.h_size = sizes[0]
-		self.y_size = output_dim
-		self.flt = torch.nn.Flatten()
-		self.rnn = torch.nn.GRU(self.x_size, self.h_size, batch_first=True)
-		layers = []
-
-		for j in range(len(sizes)-1):
-			act = activation if j < len(sizes)-2 else output_activation
-			layers += [torch.nn.Linear(sizes[j], sizes[j+1]), act()]
-
-		self.seq = torch.nn.Sequential(*layers)
-		self.h = self.init_hidden()
-		self.hid_buf = []
-		self.first_step = True
-
-	def forward(self, x):
-		x = x.view(-1, 1, self.x_size).float()
-		if x.shape[0] == 1:
-			if self.first_step:
-				self.first_step = False
-				self.hid_buf = []
-			self.hid_buf.append(self.h)
-			y, self.h = self.rnn(x, self.h)
-			self.h.detach_()
-		else:
-			self.first_step = True
-			y, _ = self.rnn(x, torch.cat(self.hid_buf[:-1], 1))
-			self.h = self.init_hidden()
-		y = self.seq(y)
-		y = y.view(-1, self.y_size)
-		return y
-
-	def init_hidden(self):
-		return torch.zeros((1, 1, self.h_size), requires_grad=True)
-
-
 class ResBlock1d(torch.nn.Module):
 	def __init__(self, fc, ks, st, pd, act):
 		super().__init__()
@@ -525,96 +412,6 @@ class ResBlock2d(torch.nn.Module):
 
 	def forward(self, x):
 		return self.final_act(self.res_block(x) + x)
-
-
-class ResBlock(torch.nn.Module):
-	def __init__(self, fc, ks, st, pd, conv, act):
-		super().__init__()
-
-		self.res_block = torch.nn.Sequential(
-			conv(fc, fc, ks, st, pd),
-			act(),
-			conv(fc, fc, ks, st, pd)
-		)
-
-		self.final_act = act()
-
-	def forward(self, x):
-		return self.final_act(self.res_block(x) + x)
-
-
-class EncoderResBlock(torch.nn.Module):
-	def __init__(self, fi, fo, conv, act):
-		super().__init__()
-		self.enc_res_block = torch.nn.Sequential(
-			conv(fi, fo, 2, 2, 0),
-			act(),
-			ResBlock(fo, 3, 1, 1, conv, act),
-			ResBlock(fo, 3, 1, 1, conv, act)
-		)
-	
-	def forward(self, x):
-		return self.enc_res_block(x)
-
-
-class DecoderResBlock(torch.nn.Module):
-	def __init__(self, fi, fa, fo, conv, pad, act, upsample_mode, rows_to_shave):
-		super().__init__()
-		self.combiner = DecoderCombiner(fi, fa, fo, conv, pad, act, upsample_mode, rows_to_shave)
-		self.dec_res_blocks = torch.nn.Sequential(
-			ResBlock(fo, 3, 1, 1, conv, act),
-			ResBlock(fo, 3, 1, 1, conv, act)
-		)
-
-	def forward(self, x, l):
-		x = self.combiner(x, l)
-		return self.dec_res_blocks(x)
-
-
-class DecoderCombiner(torch.nn.Module):
-	def __init__(self, fi, fa, fo, conv, pad, act, upsample_mode, rows_to_shave):
-		super().__init__()
-		self.upsampler = torch.nn.Upsample(scale_factor=2, mode=upsample_mode)
-		self.shaver = pad(amount=-1 * rows_to_shave)	# 'No resampling, just shave off the top rows'
-		self.net = torch.nn.Sequential(
-			pad(),										# Ok I guess
-			conv(fi + fa, fo, 2, 1, 0),
-			act(),
-		)
-
-	def forward(self, x, l):
-		x = self.upsampler(x)
-		l = self.shaver(l)
-		x = torch.cat((x, l), 1)
-		return self.net(x)
-
-
-class DecoderWithoutCombiningAction(torch.nn.Module):
-	def __init__(self, fi, fo, conv, pad, act, upsample_mode):
-		super().__init__()
-		self.net = torch.nn.Sequential(
-			torch.nn.Upsample(scale_factor=2, mode=upsample_mode),
-			pad(amount=1),
-			conv(fi, fo, 2, 1, 0),
-			act()
-		)
-
-	def forward(self, x):
-		return self.net(x)
-
-
-class UnetLayer(torch.nn.Module):
-	def __init__(self, f_enc_in, f_enc_out, f_dec_in, f_dec_out, inner_net, conv, pad, act, upsample_mode, rows_to_shave):
-		super().__init__()
-		self.encoder = EncoderResBlock(f_enc_in, f_enc_out, conv, act)
-		self.inner_net = inner_net
-		self.decoder = DecoderResBlock(f_dec_in, f_enc_in, f_dec_out, conv, pad, act, upsample_mode, rows_to_shave)
-
-	def forward(self, x):
-		y = self.encoder(x)
-		y = self.inner_net(y)
-		y = self.decoder(y, x)
-		return y
 
 
 class Permute(torch.nn.Module):
