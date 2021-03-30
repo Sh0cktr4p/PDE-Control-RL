@@ -4,7 +4,7 @@ import phi.flow as phiflow
 
 def infer_forces_from_frames(frames, domain, diffusion_substeps, viscosity, dt):
     frames = np.array(frames)
-    step_count = frames.shape[0]
+    step_count = frames.shape[0] - 1
 
     b = phiflow.Burgers(diffusion_substeps=diffusion_substeps)
     to_state = lambda v: phiflow.BurgersVelocity(domain, velocity=v, viscosity=viscosity)
