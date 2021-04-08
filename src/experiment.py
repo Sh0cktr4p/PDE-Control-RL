@@ -9,6 +9,8 @@ from stable_baselines3.common.running_mean_std import RunningMeanStd
 from stable_baselines3.common import logger
 from stable_baselines3.common.callbacks import CallbackList
 
+from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
+
 from envs.vec_monitor import VecMonitor
 from envs.burgers_env import BurgersEnv
 from envs.burgers_fixed_set import BurgersFixedSetEnv
@@ -63,6 +65,29 @@ class ExperimentFolder:
 
     def get_monitor_table(self):
         return pd.read_csv(self.monitor_path, skiprows=[0])
+
+    def get_tensorboard_scalar(self, scalar_name):
+        path_template = os.path.join(self.tensorboard_path, 'PPO_%i')
+        run_idx = 0
+        wall_times, iterations, scalar_values = [], [], []
+        while os.path.exists(path_template % run_idx):
+            event_accumulator = EventAccumulator(path_template % run_idx)
+            event_accumulator.Reload()
+
+            new_wall_times, new_iterations, new_scalar_values = zip(*event_accumulator.Scalars(scalar_name))
+
+            # To chain multiple runs together, the time inbetween has to be left out
+            prev_run_wall_time = 0 if len(wall_times) == 0 else wall_times[-1]
+            # Iterations have to be continuous even when having multiple runs
+            prev_run_iterations = 0 if len(iterations) == 0 else iterations[-1]
+
+            wall_times += [prev_run_wall_time + wt - new_wall_times[0] for wt in new_wall_times]
+            iterations += [prev_run_iterations + it - new_iterations[0] for it in new_iterations]
+            scalar_values += new_scalar_values
+
+            run_idx += 1
+
+        return wall_times, iterations, scalar_values
 
     def _create(self, env_cls, env_kwargs, agent_kwargs):
         env = self._build_env(env_cls, env_kwargs, agent_kwargs['n_steps'])
@@ -166,7 +191,7 @@ class BurgersTraining(Experiment):
                 **evaluation_env_kwargs
             )
 
-            callbacks.append(EveryNRolloutsFunctionCallback(1, lambda _: self._record_forces(self.val_env)))
+            callbacks.append(EveryNRolloutsFunctionCallback(1, lambda _: self._record_forces(self.val_env, 'val_set_forces')))
 
         # Only add a fresh running mean to new experiments
         if not ExperimentFolder.exists(path):
@@ -199,6 +224,9 @@ class BurgersTraining(Experiment):
 
     def infer_test_set_frames(self):
         return self._infer_frames(self.test_env)
+
+    def get_val_set_forces_data(self):
+        return self.folder.get_tensorboard_scalar('val_set_forces')
 
     def _infer_forces(self, env: BurgersFixedSetEnv):
         self.agent.set_env(env)
@@ -250,9 +278,9 @@ class BurgersTraining(Experiment):
 
         return cont_frames, gt_frames, pass_frames
 
-    def _record_forces(self, env: BurgersFixedSetEnv):
+    def _record_forces(self, env: BurgersFixedSetEnv, scalar_name: str):
         forces = self._infer_forces(env)
         force_avg = np.sum(forces) / env.num_envs
 
-        logger.record('data set forces', force_avg)
+        logger.record(scalar_name, force_avg)
         print('Forces on data set: %f' % force_avg)
