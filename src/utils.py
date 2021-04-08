@@ -20,7 +20,7 @@ def infer_forces_from_frames(frames, domain, diffusion_substeps, viscosity, dt):
     s = to_state(frames[0])
     for i in range(step_count):
         f = forces[i].reshape(s.velocity.data.shape)
-        effect = phiflow.FieldEffect(CenteredGrid(f, box=domain.box), ['velocity'])
+        effect = phiflow.FieldEffect(phiflow.CenteredGrid(f, box=domain.box), ['velocity'])
         s = b.step(s, dt, (effect,))
     diff = frames[-1] - s.velocity.data
     print('Maximum deviation from target state: %f' % np.abs(diff).max())
