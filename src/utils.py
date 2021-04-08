@@ -23,7 +23,7 @@ def infer_forces_from_frames(frames, domain, diffusion_substeps, viscosity, dt):
         effect = phiflow.FieldEffect(phiflow.CenteredGrid(f, box=domain.box), ['velocity'])
         s = b.step(s, dt, (effect,))
     diff = frames[-1] - s.velocity.data
-    print('Maximum deviation from target state: %f' % np.abs(diff).max())
+    print('Sanity check - maximum deviation from target state: %f' % np.abs(diff).max())
     return forces
 
 def infer_forces_sum_from_frames(frames, domain, diffusion_substeps, viscosity, dt):
