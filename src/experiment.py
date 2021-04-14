@@ -245,7 +245,7 @@ class BurgersTraining(Experiment):
 
     def get_val_set_forces_data(self):
         wall_times, timesteps, forces = self.folder.get_tensorboard_scalar('val_set_forces')
-        iterations = [i for i in timesteps]
+        iterations = [i for i in range(len(timesteps))]
         return wall_times, iterations, forces
 
     def _infer_forces(self, env: BurgersFixedSetEnv):
