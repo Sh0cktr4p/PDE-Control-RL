@@ -101,7 +101,7 @@ class ExperimentFolder:
         for i in range(1, len(wall_times)):
             if wall_times[i] < wall_times[i-1]:
                 base_time += wall_times[i-1]
-            monotonic_wall_times += base_time
+            monotonic_wall_times.append(base_time)
         
         return monotonic_wall_times, iterations, scalar_values
 
