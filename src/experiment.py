@@ -97,7 +97,7 @@ class ExperimentFolder:
 
         # Make wall times of multiple runs monotonic:
         base_time = 0
-        monotonic_wall_times = []
+        monotonic_wall_times = [wall_times[0]]
         for i in range(1, len(wall_times)):
             if wall_times[i] < wall_times[i-1]:
                 base_time += wall_times[i-1]
