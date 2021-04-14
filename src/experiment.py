@@ -96,6 +96,7 @@ class ExperimentFolder:
         scalar_values = list(table[scalar_name])
 
         # Make wall times of multiple runs monotonic:
+        base_time = 0
         monotonic_wall_times = []
         for i in range(1, len(wall_times)):
             if wall_times[i] < wall_times[i-1]:
