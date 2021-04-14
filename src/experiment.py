@@ -69,25 +69,42 @@ class ExperimentFolder:
     def get_tensorboard_scalar(self, scalar_name):
         path_template = os.path.join(self.tensorboard_path, 'PPO_%i')
         run_idx = 0
-        wall_times, iterations, scalar_values = [], [], []
+        wall_times, timesteps, scalar_values = [], [], []
         while os.path.exists(path_template % run_idx):
             event_accumulator = EventAccumulator(path_template % run_idx)
             event_accumulator.Reload()
 
-            new_wall_times, new_iterations, new_scalar_values = zip(*event_accumulator.Scalars(scalar_name))
+            new_wall_times, new_timesteps, new_scalar_values = zip(*event_accumulator.Scalars(scalar_name))
 
             # To chain multiple runs together, the time inbetween has to be left out
             prev_run_wall_time = 0 if len(wall_times) == 0 else wall_times[-1]
             # Iterations have to be continuous even when having multiple runs
-            prev_run_iterations = 0 if len(iterations) == 0 else iterations[-1]
+            prev_run_timesteps = 0 if len(timesteps) == 0 else timesteps[-1]
 
             wall_times += [prev_run_wall_time + wt - new_wall_times[0] for wt in new_wall_times]
-            iterations += [prev_run_iterations + it - new_iterations[0] for it in new_iterations]
+            timesteps += [prev_run_timesteps + it - new_timesteps[0] for it in new_timesteps]
             scalar_values += new_scalar_values
 
             run_idx += 1
 
-        return wall_times, iterations, scalar_values
+        return wall_times, timesteps, scalar_values
+
+    def get_monitor_scalar(self, scalar_name):
+        table = pd.read_csv(self.monitor_path, skiprows=[0])
+        wall_times = list(table['t'])
+        iterations = [i for i in range(len(wall_times))]
+        scalar_values = list(table[scalar_name])
+
+        # Make wall times of multiple runs monotonic:
+        monotonic_wall_times = []
+        for i in range(1, len(wall_times)):
+            if wall_times[i] < wall_times[i-1]:
+                base_time += wall_times[i-1]
+            monotonic_wall_times += base_time
+        
+        return monotonic_wall_times, iterations, scalar_values
+
+
 
     def _create(self, env_cls, env_kwargs, agent_kwargs):
         env = self._build_env(env_cls, env_kwargs, agent_kwargs['n_steps'])
@@ -226,7 +243,8 @@ class BurgersTraining(Experiment):
         return self._infer_frames(self.test_env)
 
     def get_val_set_forces_data(self):
-        return self.folder.get_tensorboard_scalar('val_set_forces')
+        wall_times, iterations, forces = self.folder.get_monitor_scalar('val_set_forces')
+        return wall_times, iterations, forces
 
     def _infer_forces(self, env: BurgersFixedSetEnv):
         self.agent.set_env(env)
