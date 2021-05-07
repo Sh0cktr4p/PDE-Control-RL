@@ -2,24 +2,23 @@ import numpy as np
 from typing import Any, List, Optional, Type
 
 import gym
-from phi.tf.flow import box, Domain, DomainState, FieldEffect
+from phi.tf.flow import box, Domain, DomainState, FieldEffect, Physics
 from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn
 
-
-class NavierEnv(VecEnv):
+class PDEEnv(VecEnv):
     metadata = {'render.modes': ['live', 'gif', 'png']}
 
     def __init__(
         self,
         physics_type: Type[Physics],
-        physics_kwargs,
+        physics_kwargs: dict,
         observation_space: gym.spaces.Box,
         action_space: gym.spaces.Box,
         num_envs: int,
-        step_cnt: int=32,
-        domain: Domain=Domain((32, 32), box=box[0:1]),
-        dt: float=0.03,
-        final_rew_factor: float=32,
+        domain: Domain,
+        step_cnt: int,
+        dt: float,
+        final_rew_factor: float,
         exp_name: str='v0',
     ):
         super().__init__(num_envs, observation_space, action_space)
@@ -138,6 +137,10 @@ class NavierEnv(VecEnv):
         self.pass_state = self.init_state.copied_with()
         self.gt_state = self.init_state.copied_with()
 
+    def _build_rew(self, forces):
+        reshaped_forces = forces.reshape(forces.shape[0], -1)
+        return -np.sum(reshaped_forces ** 2, axis=-1)
+
     def _step_sim(self, in_state: DomainState, effect: FieldEffect) -> DomainState:
         raise NotImplementedError()
 
@@ -147,13 +150,8 @@ class NavierEnv(VecEnv):
     def _get_init_state(self) -> DomainState:
         raise NotImplementedError()
 
-
     def _build_obs(self):
         raise NotImplementedError()
-
-    def _build_rew(self, forces):
-        reshaped_forces = forces.reshape(forces.shape[0], -1)
-        return -np.sum(reshaped_forces ** 2, axis=-1)
 
     def _reshape_actions_to_forces(self) -> np.ndarray:
         raise NotImplementedError()
