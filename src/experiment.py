@@ -216,7 +216,7 @@ class BurgersTraining(Experiment):
             env_kwargs['reward_rms'] = RunningMeanStd()
 
         agent_kwargs= dict(
-            verbose=1,
+            verbose=0,
             policy=CustomActorCriticPolicy,
             policy_kwargs=dict(
                 pi_net=RES_UNET,
