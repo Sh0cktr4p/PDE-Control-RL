@@ -303,4 +303,4 @@ class BurgersTraining(Experiment):
         force_avg = np.sum(forces) / env.num_envs
 
         logger.record(scalar_name, force_avg)
-        print('Forces on data set: %f' % force_avg)
+        #print('Forces on data set: %f' % force_avg)
