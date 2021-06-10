@@ -52,7 +52,7 @@ def fields_to_rgb(fields, max_value, signed):
 	return np.rint(255 * np.transpose([r, g, b], (1, 2, 0))).astype(np.uint8)
 
 
-def plot_fields(fields, labels, max_value, signed):
+def plot_fields(fields, labels, colors, max_value, signed):
 	fig = plt.figure()
 	plt.ylim(-1 * max_value if signed else 0, max_value)
 	x = np.arange(fields[0].size)
@@ -61,15 +61,22 @@ def plot_fields(fields, labels, max_value, signed):
 
 	return fig, plots
 
+def plot_vector_fields(fields, labels, colors):
+	fig = plt.figure()
+	x, y = np.mgrid[0:fields[0].shape[0], 0:fields[0].shape[1]]
+	plots = [plt.quiver(x, y, f[:,:,0], f[:,:,1], label=l, color=c) for (f, l, c) in zip(fields, labels, colors[0:len(fields)])]
+	plt.legend(loc='upper right')
 
-def render_fields(fields, labels, max_value, signed):
+	return fig, plots
+
+def render_fields(fields, labels, colors, max_value, signed):
 	assert len(fields) == len(labels), "Number of fields and labels not matching up"
 	if len(fields) > 3:
 		fields = fields[:3]
 		labels = labels[:3]
 		print("more than three plots requested. Only showing first three")
 	
-
+	# TODO this still overrides the colors that are passed to the function
 	colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
 	fig = plt.figure()
 	img = plt.imshow(fields_to_rgb(fields, max_value, signed))
@@ -96,18 +103,18 @@ class Viz:
 	def __init__(self, field_dim):
 		self.field_dim = field_dim
 
-	def render(self, fields, labels):
+	def render(self, fields, labels, colors):
 		if self.field_dim == 1:
-			self._render_1d(fields, labels)
+			self._render_1d(fields, labels, colors)
 		elif self.field_dim == 2:
-			self._render_2d(fields, labels)
+			self._render_2d(fields, labels, colors)
 		else:
 			raise NotImplementedError()
 
-	def _render_1d(self, fields, labels):
+	def _render_1d(self, fields, labels, colors):
 		pass
 
-	def _render_2d(self, fields, labels):
+	def _render_2d(self, fields, labels, colors):
 		pass
 
 
@@ -116,10 +123,11 @@ class LiveViz(Viz):
 		super().__init__(field_dim)
 		self.fig = None
 		self.img = None
+		self.plots = None
 		self.max_value = max_value
 		self.signed = signed
 
-	def _render_1d(self, fields, labels):
+	def _render_1d(self, fields, labels, colors):
 		if self.fig is None:
 			plt.ion()
 			self.fig, self.plots = plot_fields(fields, labels, self.max_value, self.signed)
@@ -130,10 +138,29 @@ class LiveViz(Viz):
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
 
-	def _render_2d(self, fields, labels):
+	def _render_2d(self, fields, labels, colors):
+		if fields[0].shape[-1] == 1:
+			self._render_img(fields, labels, colors)
+		elif fields[0].shape[-1] == 2:
+			self._render_quiver(fields, labels, colors)
+		else:
+			raise NotImplementedError()
+
+	def _render_quiver(self, fields, labels, colors):
 		if self.fig is None:
 			plt.ion()
-			self.fig, self.img = render_fields(fields, labels, self.max_value, self.signed)
+			self.fig, self.plots = plot_vector_fields(fields, labels, colors)
+		else:
+			for i, p in enumerate(self.plots):
+				p.set_UVC(fields[i][:,:,0], fields[i][:,:,1])
+
+		self.fig.canvas.draw()
+		self.fig.canvas.flush_events()
+
+	def _render_img(self, fields, labels, colors):
+		if self.fig is None:
+			plt.ion()
+			self.fig, self.img = render_fields(fields, labels, colors, self.max_value, self.signed)
 		else:
 			self.img.set_data(fields_to_rgb(fields, self.max_value, self.signed))
 
@@ -155,8 +182,8 @@ class GifViz(Viz):
 		self.epis_idx = 0
 		self.step_idx = 0
 
-	def _render_1d(self, fields, labels):
-		plot_fields(fields, labels, self.max_value, self.signed)
+	def _render_1d(self, fields, labels, colors):
+		plot_fields(fields, labels, colors, self.max_value, self.signed)
 
 		path = self._get_path()
 		plt.savefig(path)
@@ -172,8 +199,8 @@ class GifViz(Viz):
 			self.step_idx = 0
 			self.epis_idx += 1
 
-	def _render_2d(self, fields, labels):
-		fig, _ = render_fields(fields, labels, self.max_value, self.signed)
+	def _render_2d(self, fields, labels, colors):
+		fig, _ = render_fields(fields, labels, colors, self.max_value, self.signed)
 		path = self._get_path()
 		plt.savefig(path)
 		plt.close()
@@ -205,7 +232,7 @@ class PngViz(Viz):
 		self.step_idx = 0
 		self.epis_idx = 0
 
-	def _render_1d(self, fields, labels):
+	def _render_1d(self, fields, labels, _colors):
 		fields = fields[0:3]
 		labels = labels[0:3]
 		self.data.append(fields)
@@ -227,5 +254,5 @@ class PngViz(Viz):
 			self.step_idx = 0
 			self.epis_idx += 1
 
-	def _render_2d(self, fields, labels):
+	def _render_2d(self, fields, labels, colors):
 		raise NotImplementedError()

@@ -47,10 +47,10 @@ class BurgersEnv(PDEEnv):
         return self.physics.step(in_state, dt=self.dt, effects=effects)
 
     def _get_gt_forces(self) -> FieldEffect:
-        return FieldEffect(GaussianForce(self.num_envs, self.domain.rank, True), ['velocity'])
+        return FieldEffect(GaussianForce(self.num_envs, self.domain.rank), ['velocity'])
 
     def _get_init_state(self) -> BurgersVelocity:
-        return BurgersVelocity(domain=self.domain, velocity=GaussianClash(self.num_envs, self.domain.rank, vector_valued=True), viscosity=self.viscosity)
+        return BurgersVelocity(domain=self.domain, velocity=GaussianClash(self.num_envs, self.domain.rank), viscosity=self.viscosity)
 
     def _build_obs(self):
         curr_data = self.cont_state.velocity.data
@@ -81,25 +81,33 @@ class BurgersEnv(PDEEnv):
     def _get_png_viz(self):
         return PngViz("StableBurger-%s" % self.exp_name, "Velocity", self.domain.rank, self.step_cnt, 2, True)
 
-    def _get_fields_and_labels(self):
+    def _get_fields_labels_colors(self):
         # Take the simulation of the first env
         fields = [f.velocity.data[0] for f in [
-            #self.init_state,
-            #self.goal_state,
+            self.cont_state,
+            self.gt_state,
             self.pass_state,
-            #self.gt_state,
-            #self.cont_state,
+            self.init_state,
+            self.goal_state,
         ]]
 
         labels = [
-            #'Initial state',
-            #'Goal state',
+            'Controlled simulation',
+            'Ground truth simulation',
             'Uncontrolled simulation',
-            #'Ground truth simulation',
-            #'Controlled simulation',
+            'Initial state',
+            'Goal state',
         ]
 
-        return fields, labels
+        colors = [
+            'orange',
+            'blue',
+            'green',
+            'magenta',
+            'red',
+        ]
+
+        return fields, labels, colors
 
     # The whole field with one parameter in each direction, flattened out
     def _get_act_shape(self, field_shape: Tuple[int]) -> Tuple[int]:

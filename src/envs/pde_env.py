@@ -107,9 +107,7 @@ class PDEEnv(VecEnv):
             else:
                 raise NotImplementedError()
 
-        fields, labels = self._get_fields_and_labels()
-
-        self.viz.render(fields, labels)
+        self.viz.render(*self._get_fields_labels_colors())
 
     def seed(self, seed: Optional[int]=None) -> List[Optional[int]]:
         return [None for _ in range(self.num_envs)]
@@ -173,7 +171,7 @@ class PDEEnv(VecEnv):
     def _get_png_viz(self):
         raise NotImplementedError()
 
-    def _get_fields_and_labels(self):
+    def _get_fields_labels_colors(self):
         raise NotImplementedError()
 
 
