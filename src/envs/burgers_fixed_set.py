@@ -47,5 +47,5 @@ class BurgersFixedSetEnv(BurgersEnv):
         return phiflow.BurgersVelocity(self.domain, self.frames[frame_idx][dataset_idcs], viscosity=self.viscosity)
 
     def _get_frames_from_dataset(self, dataset):
-        frames = np.array([list(source.get('burgers_velocity', range(self.step_count+1))) for source in dataset.sources], dtype=np.float32).squeeze(2)
+        frames = np.array([list(source.get('burgers_velocity', range(self.step_cnt+1))) for source in dataset.sources], dtype=np.float32).squeeze(2)
         return np.swapaxes(frames, 0, 1)

@@ -11,13 +11,14 @@ from stable_baselines3.common.callbacks import CallbackList
 
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-from envs.vec_monitor import VecMonitor
-from envs.burgers_env import BurgersEnv
-from envs.burgers_fixed_set import BurgersFixedSetEnv
+from src.envs.vec_monitor import VecMonitor
+from src.envs.burgers_env import BurgersEnv
+from src.envs.burgers_fixed_set import BurgersFixedSetEnv
+from src.envs.rew_rms_wrapper import RewRmsWrapper
 
-from callbacks import EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback
-from policy import CustomActorCriticPolicy
-from networks import RES_UNET, CNN_FUNNEL
+from src.callbacks import EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback
+from src.policy import CustomActorCriticPolicy
+from src.networks import RES_UNET, CNN_FUNNEL
 
 
 class ExperimentFolder:
@@ -122,7 +123,9 @@ class ExperimentFolder:
         return agent, env
 
     def _build_env(self, env_cls, env_kwargs, rollout_size):
+        rew_rms = env_kwargs.pop('reward_rms', None)
         env = env_cls(**env_kwargs)
+        env = RewRmsWrapper(env, rew_rms)
         return VecMonitor(env, rollout_size, self.monitor_path, info_keywords=('rew_unnormalized', 'forces'))
 
     def _group_kwargs(self, env_kwargs, agent_kwargs):
@@ -167,7 +170,7 @@ class BurgersTraining(Experiment):
         path,
         domain,
         viscosity,
-        step_count, 
+        step_cnt, 
         dt,
         diffusion_substeps,
         n_envs,
@@ -184,7 +187,7 @@ class BurgersTraining(Experiment):
 
         env_kwargs = dict(
             num_envs=n_envs,
-            step_count=step_count,
+            step_cnt=step_cnt,
             domain=domain,
             dt=dt,
             viscosity=viscosity,

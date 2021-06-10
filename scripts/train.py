@@ -1,14 +1,20 @@
-import sys; sys.path.append('../src')
-
-from experiment import BurgersTraining
-from config import *
+import argparse
+from src.experiment import BurgersTraining
+from scripts.config import *
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--name', type=str, default='delete')
+
+    args = parser.parse_args()
+
+    exp_path = '../networks/rl-models/' + args.__dict__['name']
+
     trainer = BurgersTraining(
-        exp_name='../networks/rl-models/del3', 
+        path=exp_path, 
         domain=domain,
         viscosity=viscosity,
-        step_count=step_count,
+        step_cnt=step_count,
         dt=dt,
         diffusion_substeps=diffusion_substeps,
         n_envs=n_envs,
@@ -17,7 +23,8 @@ if __name__ == '__main__':
         n_epochs=n_epochs,
         learning_rate=learning_rate,
         batch_size=batch_size,
-        test_path=test_path,
+        data_path=data_path,
+        val_range=val_range,
         test_range=test_range,
     )
 

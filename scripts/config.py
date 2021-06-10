@@ -14,5 +14,6 @@ training_timesteps = steps_per_rollout * 1000 # How long the actual training sho
 n_epochs = 10 # How many epochs to perform during agent update
 learning_rate = 1e-4 # Learning rate for agent updates
 batch_size = 128 # Batch size for agent updates
-test_path = '../notebooks/forced-burgers-clash' # Path of the used test set for comparison to cfe method
+data_path = '../notebooks/forced-burgers-clash' # Path of the used data sets
 test_range = range(100) # Test samples inside the dataset
+val_range = range(100, 200) #Validation samples inside the dataset

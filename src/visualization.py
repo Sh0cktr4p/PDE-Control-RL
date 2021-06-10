@@ -24,7 +24,7 @@ def field_to_channel(field, max_value, signed=False):
 
 
 def single_field_to_rgb(field, max_value, signed=False):
-	r = field_to_channel(max_value, field, signed)
+	r = field_to_channel(field, max_value, signed)
 	b = 1.0 - r
 
 	r = np.rint(255 * r**2).astype(np.uint8)
@@ -56,13 +56,20 @@ def plot_fields(fields, labels, max_value, signed):
 	fig = plt.figure()
 	plt.ylim(-1 * max_value if signed else 0, max_value)
 	x = np.arange(fields[0].size)
-	plots = [plt.plot(x, f, label=l)[0] for (f, l) in zip(fields, labels)]
+	plots = [plt.plot(x, f.reshape(-1), label=l)[0] for (f, l) in zip(fields, labels)]
 	plt.legend(loc='upper right')
 
 	return fig, plots
 
 
 def render_fields(fields, labels, max_value, signed):
+	assert len(fields) == len(labels), "Number of fields and labels not matching up"
+	if len(fields) > 3:
+		fields = fields[:3]
+		labels = labels[:3]
+		print("more than three plots requested. Only showing first three")
+	
+
 	colors = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
 	fig = plt.figure()
 	img = plt.imshow(fields_to_rgb(fields, max_value, signed))
@@ -85,69 +92,37 @@ def combine_to_gif(image_dir, plot_name, ep_idx, ep_len, remove_frames):
 			os.remove(filename)
 
 
-class LiveViz:
-	def __init__(self):
+class Viz:
+	def __init__(self, field_dim):
+		self.field_dim = field_dim
+
+	def render(self, fields, labels):
+		if self.field_dim == 1:
+			self._render_1d(fields, labels)
+		elif self.field_dim == 2:
+			self._render_2d(fields, labels)
+		else:
+			raise NotImplementedError()
+
+	def _render_1d(self, fields, labels):
 		pass
 
-	def render(self, fields, labels, max_value, signed):
+	def _render_2d(self, fields, labels):
 		pass
 
 
-class FileViz:
-	def __init__(self, category_name):
-		pass
-
-	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
-		pass
-
-
-class LiveRenderer(LiveViz):
-	def __init__(self):
+class LiveViz(Viz):
+	def __init__(self, field_dim, max_value, signed):
+		super().__init__(field_dim)
 		self.fig = None
 		self.img = None
+		self.max_value = max_value
+		self.signed = signed
 
-	def render(self, fields, labels, max_value, signed):
+	def _render_1d(self, fields, labels):
 		if self.fig is None:
 			plt.ion()
-			self.fig, self.img = render_fields(fields, labels, max_value, signed)
-		else:
-			self.img.set_data(fields_to_rgb(fields, max_value, signed))
-
-		self.fig.canvas.draw()
-		self.fig.canvas.flush_events()
-		
-
-class FileRenderer(FileViz):
-	def __init__(self, category_name):
-		self.scene = phiflow.Scene.create(os.path.expanduser('~/phi/data/'), category_name, mkdir=True)
-		self.image_dir = self.scene.subpath('images', create=True)
-
-	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
-		if step_idx == ep_len:
-			ep_idx -= 1
-
-		fig, _ = render_fields(fields, labels, max_value, signed)
-
-		path = os.path.join(self.image_dir, '%s%04d_%04d.png' % (plot_name, ep_idx, step_idx))
-		plt.savefig(path)
-		plt.close()
-
-		if path:
-			print('Frame written to %s' % path)
-		
-		if step_idx == ep_len:
-			combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len+1, remove_frames)
-
-
-class LivePlotter(LiveViz):
-	def __init__(self):
-		self.fig = None
-		self.plots = None
-
-	def render(self, fields, labels, max_value, signed):
-		if self.fig is None:
-			plt.ion()
-			self.fig, self.plots = plot_fields(fields, labels, max_value, signed)
+			self.fig, self.plots = plot_fields(fields, labels, self.max_value, self.signed)
 		else:
 			for i in range(len(self.plots)):
 				self.plots[i].set_ydata(fields[i])
@@ -155,50 +130,102 @@ class LivePlotter(LiveViz):
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
 
+	def _render_2d(self, fields, labels):
+		if self.fig is None:
+			plt.ion()
+			self.fig, self.img = render_fields(fields, labels, self.max_value, self.signed)
+		else:
+			self.img.set_data(fields_to_rgb(fields, self.max_value, self.signed))
 
-class GifPlotter(FileViz):
-	def __init__(self, category_name):
+		self.fig.canvas.draw()
+		self.fig.canvas.flush_events()
+
+
+class GifViz(Viz):
+	def __init__(self, category_name, plot_name, field_dim, epis_len, max_value, signed, remove_frames):
+		super().__init__(field_dim)
 		self.scene = phiflow.Scene.create(os.path.expanduser('~/phi/data/'), category_name, mkdir=True)
 		self.image_dir = self.scene.subpath('images', create=True)
 		self.data = []
+		self.max_value = max_value
+		self.signed = signed
+		self.plot_name = plot_name
+		self.epis_len = epis_len
+		self.remove_frames = remove_frames
+		self.epis_idx = 0
+		self.step_idx = 0
 
-	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
-		#if step_idx == ep_len:
-		#	ep_idx -= 1
-		
-		fig, _ = plot_fields(fields, labels, max_value, signed)
+	def _render_1d(self, fields, labels):
+		plot_fields(fields, labels, self.max_value, self.signed)
 
-		path = os.path.join(self.image_dir, '%s%04d_%04d.png' % (plot_name, ep_idx, step_idx))
+		path = self._get_path()
 		plt.savefig(path)
 		plt.close()
 
 		if path:
 			print('Frame written to %s' % path)
 
-		if step_idx == ep_len - 1:
-			combine_to_gif(self.image_dir, plot_name, ep_idx, ep_len, remove_frames)
+		self.step_idx += 1
+
+		if self.step_idx == self.epis_len:
+			combine_to_gif(self.image_dir, self.plot_name, self.epis_idx, self.epis_len, self.remove_frames)
+			self.step_idx = 0
+			self.epis_idx += 1
+
+	def _render_2d(self, fields, labels):
+		fig, _ = render_fields(fields, labels, self.max_value, self.signed)
+		path = self._get_path()
+		plt.savefig(path)
+		plt.close()
+
+		if path:
+			print('Frame written to %s' % path)
+		
+		self.step_idx += 1
+
+		if self.step_idx == self.epis_len:
+			combine_to_gif(self.image_dir, self.plot_name, self.epis_idx, self.epis_len, self.remove_frames)
+			self.step_idx = 0
+			self.epis_idx += 1
+
+	def _get_path(self):
+		return os.path.join(self.image_dir, '%s%04d_%04d.png' % (self.plot_name, self.epis_idx, self.step_idx))
 
 
-class PngPlotter(FileViz):
-	def __init__(self, category_name):
+class PngViz(Viz):
+	def __init__(self, category_name, plot_name, field_dim, epis_len, max_value, signed):
+		super().__init__(field_dim)
 		self.scene = phiflow.Scene.create(os.path.expanduser('~/phi/data/'), category_name, mkdir=True)
 		self.image_dir = self.scene.subpath('images', create=True)
 		self.data = []
+		self.max_value = max_value
+		self.signed = signed
+		self.plot_name = plot_name
+		self.epis_len = epis_len
+		self.step_idx = 0
+		self.epis_idx = 0
 
-	def render(self, fields, labels, max_value, signed, plot_name, ep_idx, step_idx, ep_len, remove_frames):
+	def _render_1d(self, fields, labels):
 		fields = fields[0:3]
 		labels = labels[0:3]
 		self.data.append(fields)
 
-		if step_idx == ep_len:
+		self.step_idx += 1
+
+		if self.step_idx == self.epis_len:
 			for i in range(len(labels)):
 				fig = plt.figure()
-				plt.ylim(-1 * max_value if signed else 0, max_value)
+				plt.ylim(-1 * self.max_value if self.signed else 0, self.max_value)
 				x = np.arange(self.data[0][0].size)
-				colors = ['#%x%x%x%xff' % (c // 16, c % 16, 15 - (c // 16), 15 - (c % 16)) for c in [(256 * v) // (ep_len + 1) for v in range(ep_len + 1)]]
+				colors = ['#%x%x%x%xff' % (c // 16, c % 16, 15 - (c // 16), 15 - (c % 16)) for c in [(256 * v) // (self.epis_len) for v in range(self.epis_len)]]
 				plots = [plt.plot(x, f, c=c)[0] for (f, c) in zip([fields[i] for fields in self.data], colors)]
 
-				path = os.path.join(self.image_dir, '%s%04d_%s.png' % (plot_name, ep_idx, labels[i]))
+				path = os.path.join(self.image_dir, '%s%04d_%s.png' % (self.plot_name, self.epis_idx, labels[i]))
 				plt.savefig(path)
 				plt.close()
 			self.data = []
+			self.step_idx = 0
+			self.epis_idx += 1
+
+	def _render_2d(self, fields, labels):
+		raise NotImplementedError()

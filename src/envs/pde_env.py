@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Any, List, Optional, Type
+from typing import Any, List, Optional, Tuple, Type
 
 import gym
 from phi.tf.flow import box, Domain, DomainState, FieldEffect, Physics
@@ -18,7 +18,7 @@ class PDEEnv(VecEnv):
         domain: Domain,
         step_cnt: int,
         dt: float,
-        final_rew_factor: float,
+        final_reward_factor: float,
         exp_name: str='v0',
     ):
         super().__init__(num_envs, observation_space, action_space)
@@ -35,7 +35,7 @@ class PDEEnv(VecEnv):
         self.step_idx = 0
         self.epis_idx = 0
 
-        self.final_rew_factor = final_rew_factor
+        self.final_reward_factor = final_reward_factor
 
         self.test_mode = False
 
@@ -62,7 +62,7 @@ class PDEEnv(VecEnv):
         return self._build_obs()
 
     def step_async(self, actions: np.ndarray) -> None:
-        self.actions = actions
+        self.actions = np.array(actions)
 
     def step_wait(self) -> VecEnvStepReturn:
         self.step_idx += 1
@@ -70,6 +70,8 @@ class PDEEnv(VecEnv):
 
         forces = self._reshape_actions_to_forces()
         forces_field_effect = self._forces_to_field_effect(forces)
+        #print(forces_field_effect.field.sample_at(self.domain.indices()))
+        #print("--")
         self.cont_state = self._step_sim(self.cont_state, (forces_field_effect,))
 
         if self.test_mode:
@@ -83,7 +85,7 @@ class PDEEnv(VecEnv):
 
         if trajectory_finished:
             self.epis_idx += 1
-            rew += self._get_final_reward() * self.final_rew_factor
+            rew += self._get_final_reward() * self.final_reward_factor
             obs = self.reset()
 
         return obs, rew, done, info
@@ -93,7 +95,7 @@ class PDEEnv(VecEnv):
 
     def render(self, mode: str='live') -> None:
         if not self.test_mode and self.viz is None:
-            assert self.step_idx == 0
+            assert self.step_idx == 0, "Step idx is %i" % self.step_idx
             self.test_mode = True
             self._init_ref_states()
             if mode == 'live':
@@ -130,7 +132,7 @@ class PDEEnv(VecEnv):
     def _get_goal_state(self) -> DomainState:
         state = self.init_state.copied_with()
         for _ in range(self.step_cnt):
-            state = self._step_sim(state(self.gt_forces,))
+            state = self._step_sim(state, (self.gt_forces,))
         return state
 
     def _init_ref_states(self):
@@ -141,7 +143,7 @@ class PDEEnv(VecEnv):
         reshaped_forces = forces.reshape(forces.shape[0], -1)
         return -np.sum(reshaped_forces ** 2, axis=-1)
 
-    def _step_sim(self, in_state: DomainState, effect: FieldEffect) -> DomainState:
+    def _step_sim(self, in_state: DomainState, effects: Tuple[FieldEffect]) -> DomainState:
         raise NotImplementedError()
 
     def _get_gt_forces(self) -> FieldEffect:
