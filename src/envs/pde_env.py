@@ -5,6 +5,8 @@ import gym
 from phi.tf.flow import box, Domain, DomainState, FieldEffect, Physics
 from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn
 
+from src.visualization import Viz
+
 class PDEEnv(VecEnv):
     metadata = {'render.modes': ['live', 'gif', 'png']}
 
@@ -40,8 +42,6 @@ class PDEEnv(VecEnv):
         self.test_mode = False
 
         self.actions = None
-        self.gt_forces = None
-        self.gt_state = None
         self.init_state = None
         self.cont_state = None
         self.goal_state = None
@@ -51,7 +51,6 @@ class PDEEnv(VecEnv):
 
     def reset(self) -> VecEnvObs:
         self.step_idx = 0
-        self.gt_forces = self._get_gt_forces()
         self.init_state = self._get_init_state()
         self.cont_state = self.init_state.copied_with()
         self.goal_state = self._get_goal_state()
@@ -70,13 +69,11 @@ class PDEEnv(VecEnv):
 
         forces = self._reshape_actions_to_forces()
         forces_field_effect = self._forces_to_field_effect(forces)
-        #print(forces_field_effect.field.sample_at(self.domain.indices()))
-        #print("--")
+
         self.cont_state = self._step_sim(self.cont_state, (forces_field_effect,))
 
         if self.test_mode:
-            self.pass_state = self._step_sim(self.pass_state, ())
-            self.gt_state = self._step_gt()
+            self._step_ref_states()
 
         obs = self._build_obs()
         rew = self._build_rew(forces)
@@ -98,14 +95,7 @@ class PDEEnv(VecEnv):
             assert self.step_idx == 0, "Step idx is %i" % self.step_idx
             self.test_mode = True
             self._init_ref_states()
-            if mode == 'live':
-                self.viz = self._get_live_viz()
-            elif mode == 'gif':
-                self.viz = self._get_gif_viz()
-            elif mode == 'png':
-                self.viz = self._get_png_viz()
-            else:
-                raise NotImplementedError()
+            self.viz = self.get_viz_for_mode(mode)
 
         self.viz.render(*self._get_fields_labels_colors())
 
@@ -124,30 +114,33 @@ class PDEEnv(VecEnv):
     def env_is_wrapped(self, wrapper_class: Type[gym.Wrapper], indices: VecEnvIndices=None) -> List[bool]:
         return [False for _ in vec_env_indices_to_list(indices)]
 
-    def _step_gt(self) -> DomainState:
-        return self._step_sim(self.gt_state, (self.gt_forces,))
-
-    def _get_goal_state(self) -> DomainState:
-        state = self.init_state.copied_with()
-        for _ in range(self.step_cnt):
-            state = self._step_sim(state, (self.gt_forces,))
-        return state
-
     def _init_ref_states(self):
         self.pass_state = self.init_state.copied_with()
-        self.gt_state = self.init_state.copied_with()
+
+    def _step_ref_states(self):
+        self.pass_state = self._step_sim(self.pass_state, ())
 
     def _build_rew(self, forces):
         reshaped_forces = forces.reshape(forces.shape[0], -1)
         return -np.sum(reshaped_forces ** 2, axis=-1)
 
-    def _step_sim(self, in_state: DomainState, effects: Tuple[FieldEffect]) -> DomainState:
-        raise NotImplementedError()
-
-    def _get_gt_forces(self) -> FieldEffect:
-        raise NotImplementedError()
+    def get_viz_for_mode(self, mode: str) -> Viz:
+        if mode == 'live':
+            return self._get_live_viz()
+        elif mode == 'gif':
+            return self._get_gif_viz()
+        elif mode == 'png':
+            return self._get_png_viz()
+        else:
+            raise NotImplementedError()
 
     def _get_init_state(self) -> DomainState:
+        raise NotImplementedError()
+
+    def _get_goal_state(self) -> DomainState:
+        raise NotImplementedError()
+
+    def _step_sim(self, in_state: DomainState, effects: Tuple[FieldEffect]) -> DomainState:
         raise NotImplementedError()
 
     def _build_obs(self):

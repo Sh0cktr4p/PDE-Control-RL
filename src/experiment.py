@@ -123,8 +123,11 @@ class ExperimentFolder:
         return agent, env
 
     def _build_env(self, env_cls, env_kwargs, rollout_size):
-        rew_rms = env_kwargs.pop('reward_rms', None)
-        env = env_cls(**env_kwargs)
+        pde_env_kwargs = env_kwargs.copy()
+        rew_rms = pde_env_kwargs.pop('reward_rms')
+        if rew_rms is None:
+            print("Reward RMS is None!")
+        env = env_cls(**pde_env_kwargs)
         env = RewRmsWrapper(env, rew_rms)
         return VecMonitor(env, rollout_size, self.monitor_path, info_keywords=('rew_unnormalized', 'forces'))
 
@@ -162,6 +165,14 @@ class Experiment:
 
     def step_env(self, act):
         return self.env.step(act)
+
+    def render(self, n_steps):
+        obs = self.env.reset()
+
+        for _ in range(n_steps):
+            self.env.render('live')
+            actions, _ = self.agent.predict(obs, deterministic=True)
+            obs, _, _, _ = self.env.step(actions)
 
 
 class BurgersTraining(Experiment):

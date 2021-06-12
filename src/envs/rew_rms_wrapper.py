@@ -7,7 +7,7 @@ from stable_baselines3.common.vec_env.base_vec_env import VecEnv, VecEnvWrapper,
 class RewRmsWrapper(VecEnvWrapper):
     def __init__(self, venv: VecEnv, rew_rms: Optional[RunningMeanStd]):
         super().__init__(venv)
-        self.rew_rms = rew_rms
+        self.rew_rms = rew_rms if rew_rms is not None else RunningMeanStd()
 
     def step_wait(self) -> VecEnvStepReturn:
         obs, rew, done, info = self.venv.step_wait()

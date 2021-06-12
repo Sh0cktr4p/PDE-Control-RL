@@ -130,7 +130,7 @@ class LiveViz(Viz):
 	def _render_1d(self, fields, labels, colors):
 		if self.fig is None:
 			plt.ion()
-			self.fig, self.plots = plot_fields(fields, labels, self.max_value, self.signed)
+			self.fig, self.plots = plot_fields(fields, labels, colors, self.max_value, self.signed)
 		else:
 			for i in range(len(self.plots)):
 				self.plots[i].set_ydata(fields[i])

@@ -5,11 +5,12 @@ import os
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('--n_steps', type=int, default=3200)
     parser.add_argument('--name', type=str, default='delete')
 
     args = parser.parse_args()
 
-    exp_path = os.path.join(os.path.dirname(__file__), '../networks/rl-models/' + args.__dict__['name'])
+    exp_path = os.path.join(os.path.dirname(__file__), '../networks/rl-models/' + args.name)
 
     trainer = BurgersTraining(
         path=exp_path, 
@@ -29,4 +30,4 @@ if __name__ == '__main__':
         test_range=test_range,
     )
 
-    trainer.train(n_rollouts=1000, save_freq=50)
+    trainer.render(args.n_steps)

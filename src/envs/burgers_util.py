@@ -41,7 +41,7 @@ class GaussianClash(AnalyticField):
 
 @struct.definition()
 class GaussianForce(AnalyticField):
-    def __init__(self, batch_size, rank=2):
+    def __init__(self, batch_size, rank=1):
         AnalyticField.__init__(self, rank=rank)
         self.axis = random_unit_vec(rank, batch_size)
         self.loc = self.axis * np.random.uniform(-0.1, 0.1, (rank, batch_size)) + 0.5

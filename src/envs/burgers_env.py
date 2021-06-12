@@ -3,11 +3,11 @@ from typing import Tuple
 import gym
 from phi.tf.flow import box, Burgers, BurgersVelocity, CenteredGrid, Domain, DomainState, FieldEffect
 
-from src.envs.pde_env import PDEEnv
+from src.envs.pde_reconstruct_env import PDEReconstructEnv
 from src.envs.burgers_util import GaussianClash, GaussianForce
 from src.visualization import LiveViz, GifViz, PngViz
 
-class BurgersEnv(PDEEnv):
+class BurgersEnv(PDEReconstructEnv):
     metadata = {'render.modes': ['live', 'gif', 'png']}
 
     def __init__(

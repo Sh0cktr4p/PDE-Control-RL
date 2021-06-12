@@ -5,7 +5,6 @@ from typing import List
 
 
 class FCN(torch.nn.Module):
-
 	def __init__(self, input_shape, output_dim, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
 		print('Using fully connected network')
@@ -24,7 +23,6 @@ class FCN(torch.nn.Module):
 
 
 class CNN(torch.nn.Module):
-
 	def __init__(self, obs_shape, sizes, activation, output_activation=torch.nn.Identity):
 		super().__init__()
 		print('Using Convolutional Network')
@@ -82,7 +80,7 @@ class CNN_FUNNEL(torch.nn.Module):
 		while 2 ** num_levels < input_width:
 			num_levels += 1
 
-		assert len(sizes) == num_levels
+		#assert len(sizes) == num_levels
 
 		filter_counts = [input_shape[-1]] + sizes
 
@@ -92,18 +90,26 @@ class CNN_FUNNEL(torch.nn.Module):
 			pad(amount=pad_width, mode='constant'),
 		]
 
-		for i in range(num_levels):
+		for i in range(len(sizes)):
 			layers += [
 				conv(filter_counts[i], filter_counts[i+1], 3, 1, 1),
 				activation(),
 				pool(2),
 			]
 
+		fc_input_dim = filter_counts[-1]**input_dim * 2**(num_levels - len(sizes))
+
+		print("Input size to final fully connected layer in CNN funnel: %i" % fc_input_dim)
+
 		layers += [
-			conv(filter_counts[-1], output_dim, 1, 1, 0),
-			output_activation(),
+			#conv(filter_counts[-1], output_dim, 1, 1, 0),
+			#output_activation(),
 			torch.nn.Flatten(),
+			torch.nn.Linear(fc_input_dim, output_dim),
+			output_activation(),
 		]
+
+		print("Cnn funnel with %i levels" % num_levels)
 
 		self.net = torch.nn.Sequential(*layers)
 
