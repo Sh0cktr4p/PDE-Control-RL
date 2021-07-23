@@ -67,7 +67,10 @@ class ExperimentFolder:
         return pd.read_csv(self.monitor_path, skiprows=[0])
 
     def get_tensorboard_scalar(self, scalar_name):
-        path_template = os.path.join(self.tensorboard_path, 'PPO_%i')
+        path_template = os.path.join(self.tensorboard_path, 'training_phase_%i')
+        # Compatibility with other naming scheme, TODO not good code, needs another revision
+        if not os.path.exists(path_template % 0):
+            path_template = os.path.join(self.tensorboard_path, 'PPO_%i')
         run_idx = 0
         wall_times, timesteps, scalar_values = [], [], []
         while os.path.exists(path_template % run_idx):
