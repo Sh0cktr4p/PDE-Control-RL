@@ -56,6 +56,7 @@ class ExperimentFolder:
             pickle.dump(kwargs, kwargs_file)
 
     def get(self, env_cls, env_kwargs, agent_kwargs):
+        print('Tensorboard log path: %s' % self.tensorboard_path)
         if self.can_be_loaded:
             print('Loading existing agent from %s' % (self.agent_path + '.zip'))
             return self._load(env_cls, env_kwargs, agent_kwargs)
