@@ -125,8 +125,6 @@ class VecMonitor(VecEnvWrapper):
                 # Store the average values per rollout
                 self.logger.writerow({k:safe_mean(self.curr_rollout_data[k]) for k in self.curr_rollout_data})
                 self.file_handler.flush()
-                #for key in self.info_keywords:
-                #    logger.record(key, safe_mean(self.curr_rollout_data[key]))
                 for key in self.curr_rollout_data:
                     self.curr_rollout_data[key] = []
                 self.step_idx_in_rollout = 0

@@ -1,5 +1,7 @@
 import sys
 from typing import Callable, List
+
+from stable_baselines3.common.utils import safe_mean
 from src.one_line_output_format import OneLineOutputFormat
 from stable_baselines3.common.callbacks import BaseCallback, EventCallback, EveryNTimesteps
 from stable_baselines3.common import logger
@@ -28,6 +30,7 @@ class EveryNRolloutsPlusStartFinishFunctionCallback(EveryNRolloutsFunctionCallba
 
     def _on_training_end(self):
         self._on_event()
+
 
 class EveryNTimestepsFunctionCallback(EveryNTimesteps):
     def __init__(self, n_steps, callback_fn):
@@ -98,6 +101,7 @@ class CustomLoggerInjectionCallback(BaseCallback):
     def _on_step(self) -> bool:
         return True
 
+
 class RecordScalarCallback(BaseCallback):
     def __init__(self, scalar_name: str, scalar_fn: Callable[[], float]):
         self.scalar_name = scalar_name
@@ -110,3 +114,18 @@ class RecordScalarCallback(BaseCallback):
     def _on_rollout_end(self) -> None:
         value = self.scalar_fn()
         self.logger.record(self.scalar_name, value)
+
+
+class RecordInfoScalarsCallback(BaseCallback):
+    def __init__(self, *scalar_names):
+        self.scalar_names = scalar_names
+        super().__init__()
+
+    def _on_step(self) -> bool:
+        return True
+
+    def _on_rollout_end(self) -> None:
+        if len(self.model.ep_info_buffer) > 0 and len(self.model.ep_info_buffer[0]) > 0:
+            for scalar_name in self.scalar_names:
+                scalar_value = safe_mean([ep_info[scalar_name] for ep_info in self.model.ep_info_buffer])
+                self.logger.record("rollout/" + scalar_name, scalar_value)

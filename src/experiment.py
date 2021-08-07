@@ -17,7 +17,7 @@ from src.envs.vec_monitor import VecMonitor
 from src.envs.burgers_env import BurgersEnv
 from src.envs.burgers_fixed_set import BurgersFixedSetEnv
 
-from src.callbacks import CustomLoggerInjectionCallback, EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback, RecordScalarCallback
+from src.callbacks import CustomLoggerInjectionCallback, EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback, RecordInfoScalarsCallback, RecordScalarCallback
 from src.policy import CustomActorCriticPolicy
 from src.networks import RES_UNET, CNN_FUNNEL
 
@@ -243,6 +243,7 @@ class BurgersTraining(Experiment):
         )
 
         callbacks.append(CustomLoggerInjectionCallback())
+        callbacks.append(RecordInfoScalarsCallback('forces', 'rew_unnormalized'))
 
         super().__init__(path, BurgersEnv, env_kwargs, agent_kwargs, steps_per_rollout, n_envs, callbacks)
 
