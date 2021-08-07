@@ -1,9 +1,7 @@
 tensorboard/
 documentation/
+sim_data/
 __pycache__
 .vscode/
-*.pyc
-__pycache__
-.vscode/
-notebooks/forced-burgers-clash/
+*.__pycache__
 .ipynb*

@@ -1,3 +1,6 @@
+import sys
+from typing import Callable, List
+from src.one_line_output_format import OneLineOutputFormat
 from stable_baselines3.common.callbacks import BaseCallback, EventCallback, EveryNTimesteps
 from stable_baselines3.common import logger
 import time
@@ -81,3 +84,29 @@ class TimeConsumptionMonitorCallback(BaseCallback):
         logger.record("rollout collection time average", avg_fwd_time)
         logger.record("learning time average", avg_bwd_time)
         logger.record("ratio collection to learning", fwd_to_bwd_ratio)
+
+
+class CustomLoggerInjectionCallback(BaseCallback):
+    def _on_training_start(self):
+        # Check if output format is already present
+        for format in self.logger.output_formats:
+            if isinstance(format, OneLineOutputFormat):
+                return
+
+        self.logger.output_formats.append(OneLineOutputFormat(sys.stdout))
+
+    def _on_step(self) -> bool:
+        return True
+
+class RecordScalarCallback(BaseCallback):
+    def __init__(self, scalar_name: str, scalar_fn: Callable[[], float]):
+        self.scalar_name = scalar_name
+        self.scalar_fn = scalar_fn
+        super().__init__()
+    
+    def _on_step(self) -> bool:
+        return True
+
+    def _on_rollout_end(self) -> None:
+        value = self.scalar_fn()
+        self.logger.record(self.scalar_name, value)

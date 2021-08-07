@@ -1,5 +1,6 @@
 import os
 import pickle
+import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,13 +12,14 @@ from stable_baselines3.common.callbacks import CallbackList
 
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-from envs.vec_monitor import VecMonitor
-from envs.burgers_env import BurgersEnv
-from envs.burgers_fixed_set import BurgersFixedSetEnv
+from src.one_line_output_format import OneLineOutputFormat
+from src.envs.vec_monitor import VecMonitor
+from src.envs.burgers_env import BurgersEnv
+from src.envs.burgers_fixed_set import BurgersFixedSetEnv
 
-from callbacks import EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback
-from policy import CustomActorCriticPolicy
-from networks import RES_UNET, CNN_FUNNEL
+from src.callbacks import CustomLoggerInjectionCallback, EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback, RecordScalarCallback
+from src.policy import CustomActorCriticPolicy
+from src.networks import RES_UNET, CNN_FUNNEL
 
 
 class ExperimentFolder:
@@ -213,7 +215,8 @@ class BurgersTraining(Experiment):
                 **evaluation_env_kwargs
             )
 
-            callbacks.append(EveryNRolloutsFunctionCallback(1, lambda _: self._record_forces(self.val_env, 'val_set_forces')))
+            #callbacks.append(EveryNRolloutsFunctionCallback(1, lambda _: self._record_forces(self.val_env, 'val_set_forces')))
+            callbacks.append(RecordScalarCallback('val_set_forces', lambda: self._get_forces(self.val_env)))
 
         # Only add a fresh running mean to new experiments
         if not ExperimentFolder.exists(path):
@@ -238,6 +241,8 @@ class BurgersTraining(Experiment):
             learning_rate=learning_rate,
             batch_size=batch_size,
         )
+
+        callbacks.append(CustomLoggerInjectionCallback())
 
         super().__init__(path, BurgersEnv, env_kwargs, agent_kwargs, steps_per_rollout, n_envs, callbacks)
 
@@ -302,9 +307,10 @@ class BurgersTraining(Experiment):
 
         return cont_frames, gt_frames, pass_frames
 
-    def _record_forces(self, env: BurgersFixedSetEnv, scalar_name: str):
+    def _get_forces(self, env: BurgersFixedSetEnv):
         forces = self._infer_forces(env)
         force_avg = np.sum(forces) / env.num_envs
 
-        logger.record(scalar_name, force_avg)
+        return force_avg
+        #logger.record(scalar_name, force_avg)
         #print('Forces on data set: %f' % force_avg)

@@ -175,7 +175,7 @@ class BurgersEnv(VecEnv):
         self.pass_state = self.init_state.copied_with()
         self.gt_state = self.init_state.copied_with()
 
-    def _build_obs(self) -> List[np.ndarray]:
+    def _build_obs(self) -> np.ndarray:
         curr_data = self.cont_state.velocity.data
         goal_data = self.goal_state.velocity.data
 
@@ -183,7 +183,7 @@ class BurgersEnv(VecEnv):
         time_shape = curr_data.shape[1:-1] + (1,)
         time_data = np.full(curr_data.shape[1:], self.step_idx / self.step_count)
         # Channels last
-        return [np.concatenate(obs + (time_data,), axis=-1) for obs in zip(curr_data, goal_data)]
+        return np.array([np.concatenate(obs + (time_data,), axis=-1) for obs in zip(curr_data, goal_data)])
 
     def _build_rew(self, forces: np.ndarray) -> np.ndarray:
         reduced_shape = (forces.shape[0], -1)
