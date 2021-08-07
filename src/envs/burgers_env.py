@@ -4,7 +4,7 @@ import gym
 from phi.tf.flow import box, Burgers, BurgersVelocity, CenteredGrid, Domain, DomainState, FieldEffect
 
 from src.envs.pde_reconstruct_env import PDEReconstructEnv
-from src.envs.burgers_util import GaussianClash, GaussianForce
+from src.util.burgers_util import GaussianClash, GaussianForce
 from src.visualization import LiveViz, GifViz, PngViz
 
 class BurgersEnv(PDEReconstructEnv):
@@ -84,27 +84,27 @@ class BurgersEnv(PDEReconstructEnv):
     def _get_fields_labels_colors(self):
         # Take the simulation of the first env
         fields = [f.velocity.data[0] for f in [
-            self.cont_state,
-            self.gt_state,
+            #self.cont_state,
+            #self.gt_state,
             self.pass_state,
-            self.init_state,
-            self.goal_state,
+            #self.init_state,
+            #self.goal_state,
         ]]
 
         labels = [
-            'Controlled simulation',
-            'Ground truth simulation',
+            #'Controlled simulation',
+            #'Ground truth simulation',
             'Uncontrolled simulation',
-            'Initial state',
-            'Goal state',
+            #'Initial state',
+            #'Goal state',
         ]
 
         colors = [
             'orange',
-            'blue',
-            'green',
-            'magenta',
-            'red',
+            #'blue',
+            #'green',
+            #'magenta',
+            #'red',
         ]
 
         return fields, labels, colors

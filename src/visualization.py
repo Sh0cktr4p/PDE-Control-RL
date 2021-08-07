@@ -64,7 +64,7 @@ def plot_fields(fields, labels, colors, max_value, signed):
 def plot_vector_fields(fields, labels, colors):
 	fig = plt.figure()
 	x, y = np.mgrid[0:fields[0].shape[0], 0:fields[0].shape[1]]
-	plots = [plt.quiver(x, y, f[:,:,0], f[:,:,1], label=l, color=c) for (f, l, c) in zip(fields, labels, colors[0:len(fields)])]
+	plots = [plt.quiver(x, y, f[:,:,0], f[:,:,1], label=l, color=c, scale=10.) for (f, l, c) in zip(fields, labels, colors[0:len(fields)])]
 	plt.legend(loc='upper right')
 
 	return fig, plots
@@ -139,7 +139,7 @@ class LiveViz(Viz):
 		self.fig.canvas.flush_events()
 
 	def _render_2d(self, fields, labels, colors):
-		if fields[0].shape[-1] == 1:
+		if fields[0].shape[-1] == 1 or True:
 			self._render_img(fields, labels, colors)
 		elif fields[0].shape[-1] == 2:
 			self._render_quiver(fields, labels, colors)
