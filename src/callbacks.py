@@ -2,7 +2,7 @@ import sys
 from typing import Callable, List
 
 from stable_baselines3.common.utils import safe_mean
-from src.one_line_output_format import OneLineOutputFormat
+from one_line_output_format import OneLineOutputFormat
 from stable_baselines3.common.callbacks import BaseCallback, EventCallback, EveryNTimesteps
 from stable_baselines3.common import logger
 import time
