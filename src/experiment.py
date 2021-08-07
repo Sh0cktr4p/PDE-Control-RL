@@ -12,14 +12,14 @@ from stable_baselines3.common.callbacks import CallbackList
 
 from tensorboard.backend.event_processing.event_accumulator import EventAccumulator
 
-from src.one_line_output_format import OneLineOutputFormat
-from src.envs.vec_monitor import VecMonitor
-from src.envs.burgers_env import BurgersEnv
-from src.envs.burgers_fixed_set import BurgersFixedSetEnv
+from one_line_output_format import OneLineOutputFormat
+from envs.vec_monitor import VecMonitor
+from envs.burgers_env import BurgersEnv
+from envs.burgers_fixed_set import BurgersFixedSetEnv
 
-from src.callbacks import CustomLoggerInjectionCallback, EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback, RecordInfoScalarsCallback, RecordScalarCallback
-from src.policy import CustomActorCriticPolicy
-from src.networks import RES_UNET, CNN_FUNNEL
+from callbacks import CustomLoggerInjectionCallback, EveryNRolloutsFunctionCallback, EveryNRolloutsPlusStartFinishFunctionCallback, RecordInfoScalarsCallback, RecordScalarCallback
+from policy import CustomActorCriticPolicy
+from networks import RES_UNET, CNN_FUNNEL
 
 
 class ExperimentFolder:

@@ -1,5 +1,6 @@
 import os
 import phi.flow as phiflow
+import sys; sys.path.append(os.path.join(os.path.dirname(__file__), '../src'))
 
 from src.experiment import BurgersTraining
 from src.envs.burgers_util import GaussianClash, GaussianForce
